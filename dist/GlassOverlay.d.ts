@@ -11,6 +11,13 @@ export interface PositionTransform {
     rotation: number;
 }
 export type PositionTransformFn = (x: number, y: number, width: number, height: number) => PositionTransform;
+export interface LightFollowParams {
+    followCursor: boolean;
+    smoothing?: number;
+    curve?: number;
+    zMin?: number;
+    zMax?: number;
+}
 export interface GlassOverlayOptions {
     /**
      * The container holding the background content that should be seen through the glass.
@@ -28,6 +35,10 @@ export interface GlassOverlayOptions {
     systemOptions?: {
         hudEnabled?: boolean;
     };
+    /**
+     * Optional light follow cursor settings.
+     */
+    lightFollowParams?: LightFollowParams;
 }
 export interface GlassItemConfig {
     /**
@@ -82,7 +93,12 @@ export declare class GlassOverlay {
     private resizeObserver?;
     private intersectionObserver?;
     private positionTransform?;
+    private lightFollowParams?;
+    private currentLightDir;
+    private targetLightDir;
+    private boundMouseMove?;
     constructor(renderer: Renderer, options: GlassOverlayOptions);
+    setLightFollowParams(params: LightFollowParams): void;
     autoMount(selector?: string): void;
     track(element: HTMLElement, config?: GlassItemConfig): GlassPanel;
     private handleAnimationStart;

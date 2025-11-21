@@ -20,6 +20,14 @@ export type PositionTransformFn = (
   height: number,
 ) => PositionTransform;
 
+export interface LightFollowParams {
+  followCursor: boolean;
+  smoothing?: number; // 0.01 - 1, lerp factor (default 0.1)
+  curve?: number; // 0.5 - 3, z falloff curve (default 1.5)
+  zMin?: number; // minimum z value (default 0.3)
+  zMax?: number; // maximum z value (default 1)
+}
+
 export interface GlassOverlayOptions {
   /**
    * The container holding the background content that should be seen through the glass.
@@ -39,6 +47,11 @@ export interface GlassOverlayOptions {
   systemOptions?: {
     hudEnabled?: boolean;
   };
+
+  /**
+   * Optional light follow cursor settings.
+   */
+  lightFollowParams?: LightFollowParams;
 }
 
 export interface GlassItemConfig {
@@ -118,6 +131,12 @@ export class GlassOverlay {
   private intersectionObserver?: IntersectionObserver;
   private positionTransform?: PositionTransformFn;
 
+  // Light follow cursor
+  private lightFollowParams?: LightFollowParams;
+  private currentLightDir: [number, number, number] = [0.5, 0.5, 1];
+  private targetLightDir: [number, number, number] = [0.5, 0.5, 1];
+  private boundMouseMove?: (e: MouseEvent) => void;
+
   constructor(renderer: Renderer, options: GlassOverlayOptions) {
     this.background = options.background;
     this.system = new GlassSystem(renderer, options.systemOptions);
@@ -129,6 +148,37 @@ export class GlassOverlay {
     const composite = this.system.getCompositeDisplay();
     if (composite) {
       options.stage.addChild(composite);
+    }
+
+    // Set up light follow cursor
+    if (options.lightFollowParams) {
+      this.setLightFollowParams(options.lightFollowParams);
+    }
+  }
+
+  setLightFollowParams(params: LightFollowParams): void {
+    this.lightFollowParams = params;
+
+    if (params.followCursor && !this.boundMouseMove) {
+      this.boundMouseMove = (e: MouseEvent) => {
+        const curve = params.curve ?? 1.5;
+        const zMin = params.zMin ?? 0.3;
+        const zMax = params.zMax ?? 1;
+
+        // Convert cursor position to -1 to 1 range
+        const x = (e.clientX / window.innerWidth) * 2 - 1;
+        const y = -((e.clientY / window.innerHeight) * 2 - 1); // Invert Y
+
+        // Z decreases toward edges based on curve
+        const dist = Math.sqrt(x * x + y * y);
+        const z = Math.max(zMin, Math.min(zMax, 1 - Math.pow(dist, curve) * 0.5));
+
+        this.targetLightDir = [x, y, z];
+      };
+      window.addEventListener('mousemove', this.boundMouseMove);
+    } else if (!params.followCursor && this.boundMouseMove) {
+      window.removeEventListener('mousemove', this.boundMouseMove);
+      this.boundMouseMove = undefined;
     }
   }
 
@@ -355,17 +405,20 @@ export class GlassOverlay {
   }
 
   update(): void {
-    for (const [element, item] of this.tracked) {
-      const rect = element.getBoundingClientRect();
-      // Check if size changed significantly, if so, might need to regenerate texture?
-      // For V1 simplicity, we will scale (stretch).
-      // The user asked for "edges must match". Stretched corners look bad.
-      // Regenerating texture on every resize is expensive.
-      // A compromise: regenerate if dimension changes > threshold?
-      // Or just rely on initial size for now as per 'super simple' instruction,
-      // assuming elements don't resize dramatically dynamically.
-      // If the user drags, rect position changes but size usually doesn't.
+    // Update light direction with smoothing
+    if (this.lightFollowParams?.followCursor) {
+      const smoothing = this.lightFollowParams.smoothing ?? 0.1;
+      this.currentLightDir[0] += (this.targetLightDir[0] - this.currentLightDir[0]) * smoothing;
+      this.currentLightDir[1] += (this.targetLightDir[1] - this.currentLightDir[1]) * smoothing;
+      this.currentLightDir[2] += (this.targetLightDir[2] - this.currentLightDir[2]) * smoothing;
 
+      // Apply to all panels
+      for (const [, item] of this.tracked) {
+        item.panel.glassMaterial.lightDir = [...this.currentLightDir];
+      }
+    }
+
+    for (const [element, item] of this.tracked) {
       this.syncElement(element, item.panel);
     }
     this.system.render();
@@ -388,6 +441,10 @@ export class GlassOverlay {
   }
 
   destroy(): void {
+    if (this.boundMouseMove) {
+      window.removeEventListener('mousemove', this.boundMouseMove);
+      this.boundMouseMove = undefined;
+    }
     this.observer?.disconnect();
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
