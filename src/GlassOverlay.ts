@@ -22,10 +22,11 @@ export type PositionTransformFn = (
 
 export interface LightFollowParams {
   followCursor: boolean;
-  smoothing?: number; // 0.01 - 1, lerp factor (default 0.1)
+  smoothing?: number; // 0.01 - 1, lerp factor (default 0.03 for aggressive delay)
   curve?: number; // 0.5 - 3, z falloff curve (default 1.5)
-  zMin?: number; // minimum z value (default 0.3)
-  zMax?: number; // maximum z value (default 1)
+  zMin?: number; // minimum z value (default 0.05)
+  zMax?: number; // maximum z value (default 0.20)
+  edgeBias?: number; // 0.1 - 1, power curve to bias away from center (default 0.5)
 }
 
 export interface GlassOverlayOptions {
@@ -133,8 +134,8 @@ export class GlassOverlay {
 
   // Light follow cursor
   private lightFollowParams?: LightFollowParams;
-  private currentLightDir: [number, number, number] = [0.5, 0.5, 1];
-  private targetLightDir: [number, number, number] = [0.5, 0.5, 1];
+  private currentLightDir: [number, number, number] = [0, 0, 0.15];
+  private targetLightDir: [number, number, number] = [0, 0, 0.15];
   private boundMouseMove?: (e: MouseEvent) => void;
 
   private renderer: Renderer;
@@ -165,20 +166,26 @@ export class GlassOverlay {
     if (params.followCursor && !this.boundMouseMove) {
       this.boundMouseMove = (e: MouseEvent) => {
         const curve = params.curve ?? 1.5;
-        const zMin = params.zMin ?? 0.3;
-        const zMax = params.zMax ?? 1;
+        const zMin = params.zMin ?? 0.05;
+        const zMax = params.zMax ?? 0.20;
+        const edgeBias = params.edgeBias ?? 0.5;
 
         // Get canvas bounds for proper coordinate mapping
         const canvas = this.renderer.canvas as HTMLCanvasElement;
         const rect = canvas.getBoundingClientRect();
 
         // Convert cursor position to -1 to 1 range relative to canvas
-        const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1); // Invert Y
+        let x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        let y = ((e.clientY - rect.top) / rect.height) * 2 - 1; // Y: top=-1, bottom=1
 
-        // Z decreases toward edges based on curve
+        // Apply edge bias - power curve pushes values away from center
+        // edgeBias < 1 biases toward edges, > 1 biases toward center
+        x = Math.sign(x) * Math.pow(Math.abs(x), edgeBias);
+        y = Math.sign(y) * Math.pow(Math.abs(y), edgeBias);
+
+        // Z decreases toward edges based on curve, capped at zMax (0.20)
         const dist = Math.sqrt(x * x + y * y);
-        const z = Math.max(zMin, Math.min(zMax, 1 - Math.pow(dist, curve) * 0.5));
+        const z = Math.max(zMin, Math.min(zMax, zMax - Math.pow(dist, curve) * zMax * 0.5));
 
         this.targetLightDir = [x, y, z];
       };
@@ -412,9 +419,9 @@ export class GlassOverlay {
   }
 
   update(): void {
-    // Update light direction with smoothing
+    // Update light direction with aggressive smoothing/delay
     if (this.lightFollowParams?.followCursor) {
-      const smoothing = this.lightFollowParams.smoothing ?? 0.1;
+      const smoothing = this.lightFollowParams.smoothing ?? 0.03;
       this.currentLightDir[0] += (this.targetLightDir[0] - this.currentLightDir[0]) * smoothing;
       this.currentLightDir[1] += (this.targetLightDir[1] - this.currentLightDir[1]) * smoothing;
       this.currentLightDir[2] += (this.targetLightDir[2] - this.currentLightDir[2]) * smoothing;

@@ -712,32 +712,58 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     applyToAll({ shadow: ev.value });
   });
 
-  // Cursor-follow light
-  const lightFollowParams = { followCursor: false };
+  // Cursor-follow light using GlassOverlay's setLightFollowParams
+  const lightFollowParams = {
+    followCursor: false,
+    smoothing: 0.03,
+    curve: 1.5,
+    zMin: 0.05,
+    zMax: 0.20,
+    edgeBias: 0.5,
+  };
 
-  lightingTab.addBinding(lightFollowParams, 'followCursor', {
-    label: 'follow cursor',
+  const cursorFolder = lightingTab.addFolder({ title: 'Cursor Follow', expanded: true });
+
+  cursorFolder.addBinding(lightFollowParams, 'followCursor', {
+    label: 'enabled',
   }).on('change', (ev: any) => {
-    if (ev.value) {
-      window.addEventListener('mousemove', updateLightFromCursor);
-    } else {
-      window.removeEventListener('mousemove', updateLightFromCursor);
-    }
+    overlay.setLightFollowParams(lightFollowParams);
   });
 
-  const updateLightFromCursor = (e: MouseEvent) => {
-    // Convert cursor position to -1 to 1 range
-    const x = (e.clientX / window.innerWidth) * 2 - 1;
-    const y = -((e.clientY / window.innerHeight) * 2 - 1); // Invert Y
-    const z = 1 - Math.sqrt(x * x + y * y) * 0.5; // Z decreases toward edges
+  cursorFolder.addBinding(lightFollowParams, 'smoothing', {
+    min: 0.01, max: 0.3, step: 0.01,
+    label: 'smoothing',
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
 
-    matParams.lightX = x;
-    matParams.lightY = y;
-    matParams.lightZ = Math.min(0.8, Math.max(0.3, z)); // Cap Z to 0.8
+  cursorFolder.addBinding(lightFollowParams, 'edgeBias', {
+    min: 0.1, max: 2, step: 0.01,
+    label: 'edge bias',
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
 
-    applyToAll({ lightDir: [matParams.lightX, matParams.lightY, matParams.lightZ] });
-    pane.refresh();
-  };
+  cursorFolder.addBinding(lightFollowParams, 'curve', {
+    min: 0.5, max: 3, step: 0.1,
+    label: 'z curve',
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
+
+  cursorFolder.addBinding(lightFollowParams, 'zMin', {
+    min: 0, max: 0.5, step: 0.01,
+    label: 'z min',
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
+
+  cursorFolder.addBinding(lightFollowParams, 'zMax', {
+    min: 0.05, max: 0.5, step: 0.01,
+    label: 'z max',
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
 
   lightingTab.addBinding(matParams, 'lightX', {
     min: -1, max: 1, step: 0.01,

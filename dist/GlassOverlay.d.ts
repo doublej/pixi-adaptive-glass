@@ -17,6 +17,7 @@ export interface LightFollowParams {
     curve?: number;
     zMin?: number;
     zMax?: number;
+    edgeBias?: number;
 }
 export interface GlassOverlayOptions {
     /**
