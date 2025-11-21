@@ -22,11 +22,12 @@ export type PositionTransformFn = (
 
 export interface LightFollowParams {
   followCursor: boolean;
-  smoothing?: number; // 0.01 - 1, lerp factor (default 0.03 for aggressive delay)
+  smoothing?: number; // 0 - 1, amount of smoothing (0 = instant, 1 = very slow, default 0.9)
+  delay?: number; // 0 - 1, lag before movement starts (0 = instant, 1 = max lag, default 0.5)
   curve?: number; // 0.5 - 3, z falloff curve (default 1.5)
   zMin?: number; // minimum z value (default 0.05)
   zMax?: number; // maximum z value (default 0.20)
-  edgeBias?: number; // 0.1 - 1, power curve to bias away from center (default 0.5)
+  edgeStretch?: number; // 0.1 - 2, how much to stretch toward edges (< 1 = more edge, > 1 = more center, default 0.5)
 }
 
 export interface GlassOverlayOptions {
@@ -136,6 +137,7 @@ export class GlassOverlay {
   private lightFollowParams?: LightFollowParams;
   private currentLightDir: [number, number, number] = [0, 0, 0.15];
   private targetLightDir: [number, number, number] = [0, 0, 0.15];
+  private delayedLightDir: [number, number, number] = [0, 0, 0.15];
   private boundMouseMove?: (e: MouseEvent) => void;
 
   private renderer: Renderer;
@@ -168,7 +170,7 @@ export class GlassOverlay {
         const curve = params.curve ?? 1.5;
         const zMin = params.zMin ?? 0.05;
         const zMax = params.zMax ?? 0.20;
-        const edgeBias = params.edgeBias ?? 0.5;
+        const edgeStretch = params.edgeStretch ?? 0.5;
 
         // Get canvas bounds for proper coordinate mapping
         const canvas = this.renderer.canvas as HTMLCanvasElement;
@@ -178,10 +180,10 @@ export class GlassOverlay {
         let x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         let y = ((e.clientY - rect.top) / rect.height) * 2 - 1; // Y: top=-1, bottom=1
 
-        // Apply edge bias - power curve pushes values away from center
-        // edgeBias < 1 biases toward edges, > 1 biases toward center
-        x = Math.sign(x) * Math.pow(Math.abs(x), edgeBias);
-        y = Math.sign(y) * Math.pow(Math.abs(y), edgeBias);
+        // Apply edge stretch - power curve controls how values spread
+        // < 1 = stretch toward edges, > 1 = compress toward center
+        x = Math.sign(x) * Math.pow(Math.abs(x), edgeStretch);
+        y = Math.sign(y) * Math.pow(Math.abs(y), edgeStretch);
 
         // Z decreases toward edges based on curve, capped at zMax (0.20)
         const dist = Math.sqrt(x * x + y * y);
@@ -419,12 +421,21 @@ export class GlassOverlay {
   }
 
   update(): void {
-    // Update light direction with aggressive smoothing/delay
+    // Update light direction with delay and smoothing
     if (this.lightFollowParams?.followCursor) {
-      const smoothing = this.lightFollowParams.smoothing ?? 0.03;
-      this.currentLightDir[0] += (this.targetLightDir[0] - this.currentLightDir[0]) * smoothing;
-      this.currentLightDir[1] += (this.targetLightDir[1] - this.currentLightDir[1]) * smoothing;
-      this.currentLightDir[2] += (this.targetLightDir[2] - this.currentLightDir[2]) * smoothing;
+      // Delay: lerp delayed toward target (0 = instant, 1 = very slow)
+      const delay = this.lightFollowParams.delay ?? 0.5;
+      const delayFactor = 1 - delay * 0.97; // Convert to lerp factor (0.03 to 1)
+      this.delayedLightDir[0] += (this.targetLightDir[0] - this.delayedLightDir[0]) * delayFactor;
+      this.delayedLightDir[1] += (this.targetLightDir[1] - this.delayedLightDir[1]) * delayFactor;
+      this.delayedLightDir[2] += (this.targetLightDir[2] - this.delayedLightDir[2]) * delayFactor;
+
+      // Smoothing: lerp current toward delayed (0 = instant, 1 = very slow)
+      const smoothing = this.lightFollowParams.smoothing ?? 0.9;
+      const smoothFactor = 1 - smoothing * 0.97; // Convert to lerp factor (0.03 to 1)
+      this.currentLightDir[0] += (this.delayedLightDir[0] - this.currentLightDir[0]) * smoothFactor;
+      this.currentLightDir[1] += (this.delayedLightDir[1] - this.currentLightDir[1]) * smoothFactor;
+      this.currentLightDir[2] += (this.delayedLightDir[2] - this.currentLightDir[2]) * smoothFactor;
 
       // Apply to all panels
       for (const [, item] of this.tracked) {

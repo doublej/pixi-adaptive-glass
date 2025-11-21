@@ -715,31 +715,39 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
   // Cursor-follow light using GlassOverlay's setLightFollowParams
   const lightFollowParams = {
     followCursor: false,
-    smoothing: 0.03,
+    delay: 0.5,
+    smoothing: 0.9,
     curve: 1.5,
     zMin: 0.05,
     zMax: 0.20,
-    edgeBias: 0.5,
+    edgeStretch: 0.5,
   };
 
   const cursorFolder = lightingTab.addFolder({ title: 'Cursor Follow', expanded: true });
 
   cursorFolder.addBinding(lightFollowParams, 'followCursor', {
     label: 'enabled',
-  }).on('change', (ev: any) => {
+  }).on('change', () => {
+    overlay.setLightFollowParams(lightFollowParams);
+  });
+
+  cursorFolder.addBinding(lightFollowParams, 'delay', {
+    min: 0, max: 1, step: 0.01,
+    label: 'delay',
+  }).on('change', () => {
     overlay.setLightFollowParams(lightFollowParams);
   });
 
   cursorFolder.addBinding(lightFollowParams, 'smoothing', {
-    min: 0.01, max: 0.3, step: 0.01,
+    min: 0, max: 1, step: 0.01,
     label: 'smoothing',
   }).on('change', () => {
     overlay.setLightFollowParams(lightFollowParams);
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'edgeBias', {
+  cursorFolder.addBinding(lightFollowParams, 'edgeStretch', {
     min: 0.1, max: 2, step: 0.01,
-    label: 'edge bias',
+    label: 'edge stretch',
   }).on('change', () => {
     overlay.setLightFollowParams(lightFollowParams);
   });

@@ -1,4 +1,4 @@
-import { Rectangle as K, RenderTexture as F, MeshGeometry as X, Mesh as Y, State as $, Shader as B, Sprite as z, Texture as p, Filter as Z, GlProgram as ee, UniformGroup as q, Container as G, Graphics as te, Text as se } from "pixi.js";
+import { Rectangle as K, RenderTexture as P, MeshGeometry as X, Mesh as Y, State as $, Shader as L, Sprite as z, Texture as p, Filter as Z, GlProgram as ee, UniformGroup as q, Container as G, Graphics as te, Text as se } from "pixi.js";
 class ie {
   constructor(e) {
     this.gl = e;
@@ -87,13 +87,13 @@ class j {
   ensure(e, t, s) {
     const i = this.renderer.resolution * s;
     return (!this.handles || this.handles.sceneColor.width !== e || this.handles.sceneColor.height !== t || this.handles.sceneColor.source.resolution !== i) && (this.dispose(), this.handles = {
-      sceneColor: F.create({
+      sceneColor: P.create({
         width: e,
         height: t,
         resolution: i,
         scaleMode: "linear"
       }),
-      sceneDepth: this.useDepth ? F.create({
+      sceneDepth: this.useDepth ? P.create({
         width: e,
         height: t,
         resolution: i,
@@ -138,9 +138,9 @@ class ne {
       (e = this.listeners[t]) == null || e.clear();
   }
 }
-const k = (r) => r, le = {
+const F = (r) => r, le = {
   water() {
-    return k({
+    return F({
       ior: 1.333,
       thickness: 0.6,
       roughness: 0.1,
@@ -150,7 +150,7 @@ const k = (r) => r, le = {
     });
   },
   crownGlass() {
-    return k({
+    return F({
       ior: 1.52,
       thickness: 0.8,
       roughness: 0.05,
@@ -160,7 +160,7 @@ const k = (r) => r, le = {
     });
   },
   acrylic() {
-    return k({
+    return F({
       ior: 1.49,
       thickness: 0.7,
       roughness: 0.12,
@@ -170,7 +170,7 @@ const k = (r) => r, le = {
     });
   },
   clear() {
-    return k({
+    return F({
       ior: 1.52,
       thickness: 0.8,
       roughness: 0.05,
@@ -181,7 +181,7 @@ const k = (r) => r, le = {
   },
   fromIOR(r) {
     const e = Math.min(Math.max(r, 1), 2);
-    return k({
+    return F({
       ior: e,
       thickness: 0.75,
       roughness: 0.08,
@@ -220,7 +220,7 @@ class fe extends Y {
     const t = $.for2d();
     t.culling = !1, super({
       geometry: e.geometry ?? ue,
-      shader: B.from({
+      shader: L.from({
         gl: {
           vertex: he,
           fragment: de
@@ -701,7 +701,7 @@ class Me {
       uGlassSupersampling: { value: 1, type: "f32" },
       uPanelSize: { value: new Float32Array([200, 200]), type: "vec2<f32>" }
     });
-    this.refractShader = B.from({
+    this.refractShader = L.from({
       gl: { vertex: H, fragment: ve },
       resources: {
         uSceneColor: p.WHITE.source,
@@ -716,13 +716,13 @@ class Me {
       uResolution: { value: new Float32Array([1, 1]), type: "vec2<f32>" },
       uOpacity: { value: 1, type: "f32" }
     });
-    this.revealageShader = B.from({
+    this.revealageShader = L.from({
       gl: { vertex: H, fragment: ye },
       resources: {
         uNormalMap: p.WHITE.source,
         panelUniforms: i
       }
-    }), this.compositeShader = B.from({
+    }), this.compositeShader = L.from({
       gl: { vertex: ge, fragment: be },
       resources: {
         uSceneColor: p.WHITE.source,
@@ -751,11 +751,11 @@ class Me {
   ensureAccumTargets(e, t) {
     var i, a;
     const s = this.renderer.resolution;
-    (!this.accumRT || this.accumRT.width !== e || this.accumRT.height !== t || this.accumRT.source.resolution !== s) && ((i = this.accumRT) == null || i.destroy(!0), this.accumRT = F.create({
+    (!this.accumRT || this.accumRT.width !== e || this.accumRT.height !== t || this.accumRT.source.resolution !== s) && ((i = this.accumRT) == null || i.destroy(!0), this.accumRT = P.create({
       width: e,
       height: t,
       resolution: s
-    })), (!this.revealRT || this.revealRT.width !== e || this.revealRT.height !== t || this.revealRT.source.resolution !== s) && ((a = this.revealRT) == null || a.destroy(!0), this.revealRT = F.create({
+    })), (!this.revealRT || this.revealRT.width !== e || this.revealRT.height !== t || this.revealRT.source.resolution !== s) && ((a = this.revealRT) == null || a.destroy(!0), this.revealRT = P.create({
       width: e,
       height: t,
       resolution: s
@@ -807,7 +807,7 @@ class Me {
   ensureCompositeTarget(e, t) {
     var i;
     const s = this.renderer.resolution;
-    (!this.compositeRT || this.compositeRT.width !== e || this.compositeRT.height !== t || this.compositeRT.source.resolution !== s) && ((i = this.compositeRT) == null || i.destroy(!0), this.compositeRT = F.create({
+    (!this.compositeRT || this.compositeRT.width !== e || this.compositeRT.height !== t || this.compositeRT.source.resolution !== s) && ((i = this.compositeRT) == null || i.destroy(!0), this.compositeRT = P.create({
       width: e,
       height: t,
       resolution: s
@@ -871,7 +871,7 @@ class we {
     console.warn(`GlassSystem fallback: ${e} - ${t}`), this.events.emit("fallback", s);
   }
 }
-class Pe {
+class ke {
   constructor(e) {
     this.renderer = e, this.container = new G(), this.visible = !1, this.panel = new te().beginFill(0, 0.65).drawRoundedRect(0, 0, 260, 120, 8).endFill(), this.text = new se("Glass HUD", { fontSize: 12, fill: 16777215 }), this.text.position.set(12, 10), this.container.addChild(this.panel, this.text), this.container.visible = this.visible, this.container.position.set(12, 12);
   }
@@ -891,9 +891,9 @@ class Pe {
 `);
   }
 }
-class Be {
+class Le {
   constructor(e, t) {
-    this.tracked = /* @__PURE__ */ new Map(), this.currentLightDir = [0, 0, 0.15], this.targetLightDir = [0, 0, 0.15], this.handleAnimationStart = (i) => {
+    this.tracked = /* @__PURE__ */ new Map(), this.currentLightDir = [0, 0, 0.15], this.targetLightDir = [0, 0, 0.15], this.delayedLightDir = [0, 0, 0.15], this.handleAnimationStart = (i) => {
       const a = i.currentTarget;
       this.startPolling(a);
     }, this.handleAnimationEnd = (i) => {
@@ -907,7 +907,7 @@ class Be {
   }
   setLightFollowParams(e) {
     this.lightFollowParams = e, e.followCursor && !this.boundMouseMove ? (this.boundMouseMove = (t) => {
-      const s = e.curve ?? 1.5, i = e.zMin ?? 0.05, a = e.zMax ?? 0.2, n = e.edgeBias ?? 0.5, l = this.renderer.canvas.getBoundingClientRect();
+      const s = e.curve ?? 1.5, i = e.zMin ?? 0.05, a = e.zMax ?? 0.2, n = e.edgeStretch ?? 0.5, l = this.renderer.canvas.getBoundingClientRect();
       let u = (t.clientX - l.left) / l.width * 2 - 1, h = (t.clientY - l.top) / l.height * 2 - 1;
       u = Math.sign(u) * Math.pow(Math.abs(u), n), h = Math.sign(h) * Math.pow(Math.abs(h), n);
       const f = Math.sqrt(u * u + h * h), m = Math.max(i, Math.min(a, a - Math.pow(f, s) * a * 0.5));
@@ -1010,10 +1010,12 @@ class Be {
   update() {
     var e;
     if ((e = this.lightFollowParams) != null && e.followCursor) {
-      const t = this.lightFollowParams.smoothing ?? 0.03;
-      this.currentLightDir[0] += (this.targetLightDir[0] - this.currentLightDir[0]) * t, this.currentLightDir[1] += (this.targetLightDir[1] - this.currentLightDir[1]) * t, this.currentLightDir[2] += (this.targetLightDir[2] - this.currentLightDir[2]) * t;
-      for (const [, s] of this.tracked)
-        s.panel.glassMaterial.lightDir = [...this.currentLightDir];
+      const s = 1 - (this.lightFollowParams.delay ?? 0.5) * 0.97;
+      this.delayedLightDir[0] += (this.targetLightDir[0] - this.delayedLightDir[0]) * s, this.delayedLightDir[1] += (this.targetLightDir[1] - this.delayedLightDir[1]) * s, this.delayedLightDir[2] += (this.targetLightDir[2] - this.delayedLightDir[2]) * s;
+      const a = 1 - (this.lightFollowParams.smoothing ?? 0.9) * 0.97;
+      this.currentLightDir[0] += (this.delayedLightDir[0] - this.currentLightDir[0]) * a, this.currentLightDir[1] += (this.delayedLightDir[1] - this.currentLightDir[1]) * a, this.currentLightDir[2] += (this.delayedLightDir[2] - this.currentLightDir[2]) * a;
+      for (const [, n] of this.tracked)
+        n.panel.glassMaterial.lightDir = [...this.currentLightDir];
     }
     for (const [t, s] of this.tracked)
       this.syncElement(t, s.panel);
@@ -1109,17 +1111,17 @@ function Ce(r, e, t, s, i) {
   const a = 1 - r;
   return a * a * a * e + 3 * a * a * r * t + 3 * a * r * r * s + r * r * r * i;
 }
-function Ae(r, e, t, s, i) {
+function De(r, e, t, s, i) {
   const a = 1 - r;
   return 3 * a * a * (t - e) + 6 * a * r * (s - t) + 3 * r * r * (i - s);
 }
-function De(r, e) {
-  const t = Ce(r, 0, e[1], e[3], 1), s = Ae(r, 0, e[1], e[3], 1);
+function Ae(r, e) {
+  const t = Ce(r, 0, e[1], e[3], 1), s = De(r, 0, e[1], e[3], 1);
   return { height: t, derivative: s };
 }
-function ke(r, e, t) {
+function Fe(r, e, t) {
   if (t)
-    return De(r, t);
+    return Ae(r, t);
   switch (e) {
     case "circle":
       return { height: Re(r), derivative: xe(r) };
@@ -1155,30 +1157,30 @@ function Q(r, e, t, s, i, a = !1, n = !1, c) {
     for (let m = 0; m < l; m++) {
       let d = 0, o = 0, y = 1, R = 255;
       const x = (l - 1) / 2, C = (u - 1) / 2, g = Math.abs(m - x), v = Math.abs(f - C), b = l / 2 - t, M = u / 2 - t;
-      let T = 0, W = 0, V = 0, A = g, D = v;
+      let T = 0, W = 0, V = 0, D = g, A = v;
       if (g <= b && v <= M) {
         const S = b + t, w = M + t;
-        S - g < w - v ? (A = b + t, D = v) : (A = g, D = M + t), T = Math.min(S - g, w - v);
+        S - g < w - v ? (D = b + t, A = v) : (D = g, A = M + t), T = Math.min(S - g, w - v);
       } else if (g > b && v <= M)
-        A = b + t, D = v, T = t - (g - b);
+        D = b + t, A = v, T = t - (g - b);
       else if (v > M && g <= b)
-        A = g, D = M + t, T = t - (v - M);
+        D = g, A = M + t, T = t - (v - M);
       else {
         const S = g - b, w = v - M, E = Math.sqrt(S * S + w * w);
-        T = t - E, E > 0 && (A = b + S / E * t, D = M + w / E * t);
+        T = t - E, E > 0 && (D = b + S / E * t, A = M + w / E * t);
       }
       T < 0 && (R = 0);
-      const O = A - g, L = D - v, U = Math.sqrt(O * O + L * L);
-      if (U > 1e-3 && (W = (m > x ? 1 : -1) * (O / U), V = (f > C ? 1 : -1) * (L / U)), s > 0 && T < s && T >= 0) {
+      const B = D - g, O = A - v, U = Math.sqrt(B * B + O * O);
+      if (U > 1e-3 && (W = (m > x ? 1 : -1) * (B / U), V = (f > C ? 1 : -1) * (O / U)), s > 0 && T < s && T >= 0) {
         let S = 1 - T / s;
         n && (S = 1 - S);
-        const { derivative: w } = ke(S, i, c), E = n ? -1 : 1;
+        const { derivative: w } = Fe(S, i, c), E = n ? -1 : 1;
         d = W * w * 0.5 * E, o = V * w * 0.5 * E, a && (d = -d, o = -o);
       }
       const I = Math.sqrt(d * d + o * o + y * y);
       d /= I, o /= I, y /= I;
-      const P = (f * l + m) * 4;
-      h[P] = (d * 0.5 + 0.5) * 255 | 0, h[P + 1] = (o * 0.5 + 0.5) * 255 | 0, h[P + 2] = (y * 0.5 + 0.5) * 255 | 0, h[P + 3] = R;
+      const k = (f * l + m) * 4;
+      h[k] = (d * 0.5 + 0.5) * 255 | 0, h[k + 1] = (o * 0.5 + 0.5) * 255 | 0, h[k + 2] = (y * 0.5 + 0.5) * 255 | 0, h[k + 3] = R;
     }
   return p.from({
     resource: h,
@@ -1190,14 +1192,14 @@ export {
   oe as AdaptiveQualityController,
   ie as CapabilityProbe,
   ne as EventBus,
-  Pe as GlassHUD,
-  Be as GlassOverlay,
+  ke as GlassHUD,
+  Le as GlassOverlay,
   fe as GlassPanel,
   le as GlassPresets,
   we as GlassSystem,
   j as SceneRTManager,
-  De as getBezierHeightAndDerivative,
-  ke as getHeightAndDerivative,
+  Ae as getBezierHeightAndDerivative,
+  Fe as getHeightAndDerivative,
   Re as heightCircle,
   N as heightSquircle,
   Te as smootherstep

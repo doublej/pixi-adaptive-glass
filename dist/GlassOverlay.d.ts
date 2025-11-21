@@ -14,10 +14,11 @@ export type PositionTransformFn = (x: number, y: number, width: number, height: 
 export interface LightFollowParams {
     followCursor: boolean;
     smoothing?: number;
+    delay?: number;
     curve?: number;
     zMin?: number;
     zMax?: number;
-    edgeBias?: number;
+    edgeStretch?: number;
 }
 export interface GlassOverlayOptions {
     /**
@@ -97,6 +98,7 @@ export declare class GlassOverlay {
     private lightFollowParams?;
     private currentLightDir;
     private targetLightDir;
+    private delayedLightDir;
     private boundMouseMove?;
     private renderer;
     constructor(renderer: Renderer, options: GlassOverlayOptions);
