@@ -1366,7 +1366,14 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       current: matParams,
       profiles: loadProfiles(),
     };
-    navigator.clipboard.writeText(JSON.stringify(exportData, null, 2));
+    // Round numbers to 3 decimal places for cleaner export
+    const replacer = (_key: string, value: unknown) => {
+      if (typeof value === 'number') {
+        return Math.round(value * 1000) / 1000;
+      }
+      return value;
+    };
+    navigator.clipboard.writeText(JSON.stringify(exportData, replacer, 2));
     loggerInstance.log('profile:export', 'Exported to clipboard');
   });
 
