@@ -29,10 +29,6 @@ export interface GlassMaterial {
   blurAngle?: number; // 0 - 360, direction of directional blur
   blurAnisotropy?: number; // 0 - 1, how directional (0 = circular, 1 = line)
   blurGamma?: number; // 0.5 - 3, blur falloff curve (< 1 = soft, > 1 = sharp edges)
-  // Imperfections
-  specularNoise?: number; // 0 - 1, variation in specular highlights
-  surfaceWarp?: number; // 0 - 1, organic surface distortion
-  lightJitter?: number; // 0 - 0.5, subtle light direction variation
   aberrationR?: number; // 0.5 - 1.5, red channel dispersion multiplier
   aberrationB?: number; // 0.5 - 1.5, blue channel dispersion multiplier
   ao?: number; // 0 - 1, ambient occlusion intensity at edges

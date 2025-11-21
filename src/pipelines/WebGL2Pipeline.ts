@@ -71,9 +71,6 @@ export class WebGL2Pipeline implements Pipeline {
       uBlurAngle: { value: 0, type: 'f32' },
       uBlurAnisotropy: { value: 0, type: 'f32' },
       uBlurGamma: { value: 1, type: 'f32' },
-      uSpecularNoise: { value: 0, type: 'f32' },
-      uSurfaceWarp: { value: 0, type: 'f32' },
-      uLightJitter: { value: 0, type: 'f32' },
       uAberrationR: { value: 1, type: 'f32' },
       uAberrationB: { value: 1, type: 'f32' },
       uAO: { value: 0, type: 'f32' },
@@ -277,9 +274,6 @@ export class WebGL2Pipeline implements Pipeline {
         uniforms.uBlurAngle = (panel.glassMaterial.blurAngle ?? 0) * Math.PI / 180;
         uniforms.uBlurAnisotropy = panel.glassMaterial.blurAnisotropy ?? 0;
         uniforms.uBlurGamma = panel.glassMaterial.blurGamma ?? 1;
-        uniforms.uSpecularNoise = panel.glassMaterial.specularNoise ?? 0;
-        uniforms.uSurfaceWarp = panel.glassMaterial.surfaceWarp ?? 0;
-        uniforms.uLightJitter = panel.glassMaterial.lightJitter ?? 0;
         uniforms.uAberrationR = panel.glassMaterial.aberrationR ?? 1;
         uniforms.uAberrationB = panel.glassMaterial.aberrationB ?? 1;
         uniforms.uAO = panel.glassMaterial.ao ?? 0;

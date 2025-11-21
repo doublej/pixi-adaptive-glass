@@ -50,9 +50,6 @@ uniform float uBlurSpread;
 uniform float uBlurAngle;
 uniform float uBlurAnisotropy;
 uniform float uBlurGamma;
-uniform float uSpecularNoise;
-uniform float uSurfaceWarp;
-uniform float uLightJitter;
 uniform float uAberrationR;
 uniform float uAberrationB;
 uniform float uAO;
@@ -241,38 +238,14 @@ void main(){
   float tintStrength = 0.3;
   refracted = mix(refracted, refracted * uTint + uTint * 0.1, tintStrength);
 
-  // Apply surface warp for organic distortion
-  if (uSurfaceWarp > 0.001) {
-    vec2 warpUV = vUv * 3.0 + vec2(17.3, 31.7);
-    float warp1 = valueNoise(warpUV) - 0.5;
-    float warp2 = valueNoise(warpUV + vec2(50.0, 50.0)) - 0.5;
-    normal += vec2(warp1, warp2) * uSurfaceWarp * 0.3;
-  }
-
-  // Calculate lighting from normal map (now includes noise and warp)
+  // Calculate lighting from normal map (now includes noise)
   vec3 N = normalize(vec3(normal, normalSample.b * 2.0 - 1.0));
+  float NdotL = max(0.0, dot(N, normalize(uLightDir)));
 
-  // Apply light jitter for less perfect lighting
-  vec3 lightDir = normalize(uLightDir);
-  if (uLightJitter > 0.001) {
-    vec2 jitterUV = gl_FragCoord.xy * 0.01;
-    float jx = (valueNoise(jitterUV) - 0.5) * uLightJitter;
-    float jy = (valueNoise(jitterUV + vec2(100.0, 0.0)) - 0.5) * uLightJitter;
-    lightDir = normalize(lightDir + vec3(jx, jy, 0.0));
-  }
-
-  float NdotL = max(0.0, dot(N, lightDir));
-
-  // Specular highlight (Blinn-Phong) with noise variation
+  // Specular highlight (Blinn-Phong)
   vec3 viewDir = vec3(0.0, 0.0, 1.0);
-  vec3 halfDir = normalize(lightDir + viewDir);
+  vec3 halfDir = normalize(normalize(uLightDir) + viewDir);
   float spec = pow(max(0.0, dot(N, halfDir)), uShininess) * uSpecular;
-
-  // Add specular noise for imperfect highlights
-  if (uSpecularNoise > 0.001) {
-    float specNoise = valueNoise(vUv * 8.0 + vec2(73.1, 19.3));
-    spec *= 1.0 - uSpecularNoise * (1.0 - specNoise);
-  }
 
   // Shadow from normal facing away from light
   float shadowFactor = 1.0 - uShadow * (1.0 - NdotL);
