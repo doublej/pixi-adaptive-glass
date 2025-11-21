@@ -1,10 +1,10 @@
 {
   "name": "pixi-adaptive-glass",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An adaptive glass effect plugin for PixiJS applications.",
   "type": "module",
-  "main": "../../../clients/poolsuite/silentsongs/silentsongs-experience/node_modules/dist/pixi-adaptive-glass.umd.js",
-  "module": "../../../clients/poolsuite/silentsongs/silentsongs-experience/node_modules/dist/pixi-adaptive-glass.es.js",
+  "main": "./dist/pixi-adaptive-glass.umd.js",
+  "module": "./dist/pixi-adaptive-glass.es.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
@@ -14,7 +14,8 @@
     }
   },
   "scripts": {
-    "build": "vite build --config vite.config.ts && tsc --emitDeclarationOnly --declaration --outDir ../../../clients/poolsuite/silentsongs/silentsongs-experience/node_modules/dist",
+    "build": "vite build --config vite.config.ts && tsc --emitDeclarationOnly --declaration --outDir dist",
+    "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "test": "vitest run",
@@ -22,7 +23,7 @@
     "deploy": "sh deploy.sh"
   },
   "files": [
-    "../../../clients/poolsuite/silentsongs/silentsongs-experience/node_modules/dist"
+    "dist"
   ],
   "peerDependencies": {
     "pixi.js": "^8.0.0"
