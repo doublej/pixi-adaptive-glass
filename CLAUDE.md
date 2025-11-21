@@ -1,0 +1,1 @@
+- When updates are ready you will launch the browser and verify. You will not touch the server, not touch vite (its running or ask user). You will brief a subagent to launch browser using Chrome DevTools MCP Skill and return you a focused update.

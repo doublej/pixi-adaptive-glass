@@ -119,6 +119,3 @@ demo-dist/
 # Caddy
 *.caddy
 Caddyfile*
-
-# Docs
-*.md
