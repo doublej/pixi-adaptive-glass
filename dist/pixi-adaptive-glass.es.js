@@ -1,4 +1,4 @@
-import { Rectangle as K, RenderTexture as F, MeshGeometry as j, Mesh as X, State as Y, Shader as U, Sprite as W, Texture as p, Filter as Z, GlProgram as ee, UniformGroup as q, Container as V, Graphics as te, Text as se } from "pixi.js";
+import { Rectangle as K, RenderTexture as F, MeshGeometry as X, Mesh as Y, State as $, Shader as B, Sprite as G, Texture as p, Filter as Z, GlProgram as ee, UniformGroup as q, Container as W, Graphics as te, Text as se } from "pixi.js";
 class ie {
   constructor(e) {
     this.gl = e;
@@ -80,7 +80,7 @@ class oe {
     }
   }
 }
-class $ {
+class j {
   constructor(e, t) {
     this.renderer = e, this.useDepth = t, this.scale = 1, this.clearRect = new K();
   }
@@ -192,7 +192,7 @@ const k = (r) => r, le = {
   }
 };
 let ce = 0;
-const ue = new j({
+const ue = new X({
   positions: new Float32Array([-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5]),
   uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
   indices: new Uint32Array([0, 1, 2, 0, 2, 3])
@@ -215,12 +215,12 @@ void main(void){
   gl_FragColor = vec4(vUv, 0.0, 1.0);
 }
 `;
-class fe extends X {
+class fe extends Y {
   constructor(e) {
-    const t = Y.for2d();
+    const t = $.for2d();
     t.culling = !1, super({
       geometry: e.geometry ?? ue,
-      shader: U.from({
+      shader: B.from({
         gl: {
           vertex: he,
           fragment: de
@@ -323,7 +323,7 @@ class pe extends Z {
 }
 class me {
   constructor(e) {
-    this.renderer = e, this.id = "webgl1", this.filter = new pe(), this.rtManager = new $(e, !1), this.blitSprite = new W(p.WHITE);
+    this.renderer = e, this.id = "webgl1", this.filter = new pe(), this.rtManager = new j(e, !1), this.blitSprite = new G(p.WHITE);
   }
   setup() {
   }
@@ -400,9 +400,6 @@ uniform float uBlurSpread;
 uniform float uBlurAngle;
 uniform float uBlurAnisotropy;
 uniform float uBlurGamma;
-uniform float uSpecularNoise;
-uniform float uSurfaceWarp;
-uniform float uLightJitter;
 uniform float uAberrationR;
 uniform float uAberrationB;
 uniform float uAO;
@@ -591,38 +588,14 @@ void main(){
   float tintStrength = 0.3;
   refracted = mix(refracted, refracted * uTint + uTint * 0.1, tintStrength);
 
-  // Apply surface warp for organic distortion
-  if (uSurfaceWarp > 0.001) {
-    vec2 warpUV = vUv * 3.0 + vec2(17.3, 31.7);
-    float warp1 = valueNoise(warpUV) - 0.5;
-    float warp2 = valueNoise(warpUV + vec2(50.0, 50.0)) - 0.5;
-    normal += vec2(warp1, warp2) * uSurfaceWarp * 0.3;
-  }
-
-  // Calculate lighting from normal map (now includes noise and warp)
+  // Calculate lighting from normal map (now includes noise)
   vec3 N = normalize(vec3(normal, normalSample.b * 2.0 - 1.0));
+  float NdotL = max(0.0, dot(N, normalize(uLightDir)));
 
-  // Apply light jitter for less perfect lighting
-  vec3 lightDir = normalize(uLightDir);
-  if (uLightJitter > 0.001) {
-    vec2 jitterUV = gl_FragCoord.xy * 0.01;
-    float jx = (valueNoise(jitterUV) - 0.5) * uLightJitter;
-    float jy = (valueNoise(jitterUV + vec2(100.0, 0.0)) - 0.5) * uLightJitter;
-    lightDir = normalize(lightDir + vec3(jx, jy, 0.0));
-  }
-
-  float NdotL = max(0.0, dot(N, lightDir));
-
-  // Specular highlight (Blinn-Phong) with noise variation
+  // Specular highlight (Blinn-Phong)
   vec3 viewDir = vec3(0.0, 0.0, 1.0);
-  vec3 halfDir = normalize(lightDir + viewDir);
+  vec3 halfDir = normalize(normalize(uLightDir) + viewDir);
   float spec = pow(max(0.0, dot(N, halfDir)), uShininess) * uSpecular;
-
-  // Add specular noise for imperfect highlights
-  if (uSpecularNoise > 0.001) {
-    float specNoise = valueNoise(vUv * 8.0 + vec2(73.1, 19.3));
-    spec *= 1.0 - uSpecularNoise * (1.0 - specNoise);
-  }
 
   // Shadow from normal facing away from light
   float shadowFactor = 1.0 - uShadow * (1.0 - NdotL);
@@ -677,14 +650,14 @@ void main(){
   vec3 result = mix(scene, accum.rgb, accum.a);
   gl_FragColor = vec4(result, 1.0);
 }
-`, Se = new j({
+`, Se = new X({
   positions: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
   uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]),
   indices: new Uint32Array([0, 1, 2, 0, 2, 3])
 });
 class Me {
   constructor(e, t) {
-    this.renderer = e, this.id = "webgl2", this.rtManager = new $(e, t);
+    this.renderer = e, this.id = "webgl2", this.rtManager = new j(e, t);
     const s = new q({
       uPosition: { value: new Float32Array([0, 0]), type: "vec2<f32>" },
       uScale: { value: new Float32Array([1, 1]), type: "vec2<f32>" },
@@ -707,9 +680,6 @@ class Me {
       uBlurAngle: { value: 0, type: "f32" },
       uBlurAnisotropy: { value: 0, type: "f32" },
       uBlurGamma: { value: 1, type: "f32" },
-      uSpecularNoise: { value: 0, type: "f32" },
-      uSurfaceWarp: { value: 0, type: "f32" },
-      uLightJitter: { value: 0, type: "f32" },
       uAberrationR: { value: 1, type: "f32" },
       uAberrationB: { value: 1, type: "f32" },
       uAO: { value: 0, type: "f32" },
@@ -731,7 +701,7 @@ class Me {
       uGlassSupersampling: { value: 1, type: "f32" },
       uPanelSize: { value: new Float32Array([200, 200]), type: "vec2<f32>" }
     });
-    this.refractShader = U.from({
+    this.refractShader = B.from({
       gl: { vertex: H, fragment: ge },
       resources: {
         uSceneColor: p.WHITE.source,
@@ -746,23 +716,23 @@ class Me {
       uResolution: { value: new Float32Array([1, 1]), type: "vec2<f32>" },
       uOpacity: { value: 1, type: "f32" }
     });
-    this.revealageShader = U.from({
+    this.revealageShader = B.from({
       gl: { vertex: H, fragment: ye },
       resources: {
         uNormalMap: p.WHITE.source,
         panelUniforms: i
       }
-    }), this.compositeShader = U.from({
+    }), this.compositeShader = B.from({
       gl: { vertex: ve, fragment: be },
       resources: {
         uSceneColor: p.WHITE.source,
         uAccum: p.WHITE.source,
         uReveal: p.WHITE.source
       }
-    }), this.fullScreenQuad = new X({
+    }), this.fullScreenQuad = new Y({
       geometry: Se,
       shader: this.compositeShader
-    }), this.fullScreenQuad.state = Y.for2d(), this.fullScreenQuad.state.culling = !1, this.shadowSprite = new W(p.WHITE), this.panelParent = new V(), this.panelParent.alpha = 1, this.compositeSprite = new W(p.EMPTY), this.compositeSprite.position.set(0, 0), this.compositeSprite.visible = !0, this.compositeSprite.alpha = 1, this.compositeSprite.zIndex = 9999;
+    }), this.fullScreenQuad.state = $.for2d(), this.fullScreenQuad.state.culling = !1, this.shadowSprite = new G(p.WHITE), this.panelParent = new W(), this.panelParent.alpha = 1, this.compositeSprite = new G(p.EMPTY), this.compositeSprite.position.set(0, 0), this.compositeSprite.visible = !0, this.compositeSprite.alpha = 1, this.compositeSprite.zIndex = 9999;
   }
   setup() {
   }
@@ -793,7 +763,7 @@ class Me {
   }
   clearTarget(e, t, s, i, a) {
     if (!e) return;
-    const n = new V();
+    const n = new W();
     this.renderer.render({ container: n, target: e, clear: !0, clearColor: [t, s, i, a] });
   }
   renderPanel(e, t, s) {
@@ -806,10 +776,10 @@ class Me {
       if (o) {
         const y = ((g = (f = this.accumRT) == null ? void 0 : f.source) == null ? void 0 : g._resolution) ?? this.renderer.resolution;
         o.uPosition[0] = e.position.x, o.uPosition[1] = e.position.y, o.uScale[0] = e.scale.x, o.uScale[1] = e.scale.y, o.uResolution[0] = a, o.uResolution[1] = n, o.uInvResolution[0] = 1 / (a * y), o.uInvResolution[1] = 1 / (n * y), o.uIOR = e.glassMaterial.ior, o.uThickness = e.glassMaterial.thickness, o.uDispersion = e.glassMaterial.dispersion, o.uRoughness = e.glassMaterial.roughness, o.uOpacity = e.glassMaterial.opacity ?? 1, o.uEnableDispersion = t.enableDispersion && e.glassMaterial.dispersion > 1e-3 ? 1 : 0, o.uEnableCaustics = t.enableCaustics && e.causticsAtlas ? 1 : 0;
-        const R = J(e.glassMaterial.tint ?? 16777215);
-        o.uTint[0] = R[0], o.uTint[1] = R[1], o.uTint[2] = R[2], o.uSpecular = e.glassMaterial.specular ?? 0, o.uShininess = e.glassMaterial.shininess ?? 32, o.uShadow = e.glassMaterial.shadow ?? 0;
-        const x = e.glassMaterial.lightDir ?? [0.5, 0.5, 1];
-        o.uLightDir[0] = x[0], o.uLightDir[1] = x[1], o.uLightDir[2] = x[2], o.uBlurSamples = e.glassMaterial.blurSamples ?? 8, o.uBlurSpread = e.glassMaterial.blurSpread ?? 4, o.uBlurAngle = (e.glassMaterial.blurAngle ?? 0) * Math.PI / 180, o.uBlurAnisotropy = e.glassMaterial.blurAnisotropy ?? 0, o.uBlurGamma = e.glassMaterial.blurGamma ?? 1, o.uSpecularNoise = e.glassMaterial.specularNoise ?? 0, o.uSurfaceWarp = e.glassMaterial.surfaceWarp ?? 0, o.uLightJitter = e.glassMaterial.lightJitter ?? 0, o.uAberrationR = e.glassMaterial.aberrationR ?? 1, o.uAberrationB = e.glassMaterial.aberrationB ?? 1, o.uAO = e.glassMaterial.ao ?? 0, o.uAORadius = e.glassMaterial.aoRadius ?? 0.5, o.uNoiseScale = e.glassMaterial.noiseScale ?? 20, o.uNoiseIntensity = e.glassMaterial.noiseIntensity ?? 0, o.uNoiseRotation = e.glassMaterial.noiseRotation ?? 0, o.uNoiseThreshold = e.glassMaterial.noiseThreshold ?? 0, o.uEdgeSupersampling = t.edgeSupersampling ?? 1, o.uEdgeSmoothWidth = e.glassMaterial.edgeSmoothWidth ?? 0.15, o.uEdgeContrast = e.glassMaterial.edgeContrast ?? 0.7, o.uEdgeAlphaFalloff = e.glassMaterial.edgeAlphaFalloff ?? 1, o.uEdgeMaskCutoff = e.glassMaterial.edgeMaskCutoff ?? 1e-3, o.uEnableEdgeSmoothing = e.glassMaterial.enableEdgeSmoothing === !0 ? 1 : 0, o.uEnableContrastReduction = e.glassMaterial.enableContrastReduction === !0 ? 1 : 0, o.uEnableAlphaFalloff = e.glassMaterial.enableAlphaFalloff === !0 ? 1 : 0, o.uEnableTintOpacity = e.glassMaterial.enableTintOpacity === !0 ? 1 : 0, o.uEdgeBlur = e.glassMaterial.edgeBlur ?? 0, o.uGlassSupersampling = e.glassMaterial.glassSupersampling ?? 1, o.uPanelSize[0] = e.scale.x, o.uPanelSize[1] = e.scale.y;
+        const w = J(e.glassMaterial.tint ?? 16777215);
+        o.uTint[0] = w[0], o.uTint[1] = w[1], o.uTint[2] = w[2], o.uSpecular = e.glassMaterial.specular ?? 0, o.uShininess = e.glassMaterial.shininess ?? 32, o.uShadow = e.glassMaterial.shadow ?? 0;
+        const T = e.glassMaterial.lightDir ?? [0.5, 0.5, 1];
+        o.uLightDir[0] = T[0], o.uLightDir[1] = T[1], o.uLightDir[2] = T[2], o.uBlurSamples = e.glassMaterial.blurSamples ?? 8, o.uBlurSpread = e.glassMaterial.blurSpread ?? 4, o.uBlurAngle = (e.glassMaterial.blurAngle ?? 0) * Math.PI / 180, o.uBlurAnisotropy = e.glassMaterial.blurAnisotropy ?? 0, o.uBlurGamma = e.glassMaterial.blurGamma ?? 1, o.uAberrationR = e.glassMaterial.aberrationR ?? 1, o.uAberrationB = e.glassMaterial.aberrationB ?? 1, o.uAO = e.glassMaterial.ao ?? 0, o.uAORadius = e.glassMaterial.aoRadius ?? 0.5, o.uNoiseScale = e.glassMaterial.noiseScale ?? 20, o.uNoiseIntensity = e.glassMaterial.noiseIntensity ?? 0, o.uNoiseRotation = e.glassMaterial.noiseRotation ?? 0, o.uNoiseThreshold = e.glassMaterial.noiseThreshold ?? 0, o.uEdgeSupersampling = t.edgeSupersampling ?? 1, o.uEdgeSmoothWidth = e.glassMaterial.edgeSmoothWidth ?? 0.15, o.uEdgeContrast = e.glassMaterial.edgeContrast ?? 0.7, o.uEdgeAlphaFalloff = e.glassMaterial.edgeAlphaFalloff ?? 1, o.uEdgeMaskCutoff = e.glassMaterial.edgeMaskCutoff ?? 1e-3, o.uEnableEdgeSmoothing = e.glassMaterial.enableEdgeSmoothing === !0 ? 1 : 0, o.uEnableContrastReduction = e.glassMaterial.enableContrastReduction === !0 ? 1 : 0, o.uEnableAlphaFalloff = e.glassMaterial.enableAlphaFalloff === !0 ? 1 : 0, o.uEnableTintOpacity = e.glassMaterial.enableTintOpacity === !0 ? 1 : 0, o.uEdgeBlur = e.glassMaterial.edgeBlur ?? 0, o.uGlassSupersampling = e.glassMaterial.glassSupersampling ?? 1, o.uPanelSize[0] = e.scale.x, o.uPanelSize[1] = e.scale.y;
       }
     }
     const c = e.shader;
@@ -844,7 +814,7 @@ class Me {
     }), this.compositeSprite.texture = this.compositeRT);
   }
 }
-class we {
+class Re {
   constructor(e, t = {}) {
     this.renderer = e, this.panels = [], this.quality = new oe(), this.drawOpaqueScene = () => {
     }, this.events = new ne();
@@ -903,7 +873,7 @@ class we {
 }
 class Pe {
   constructor(e) {
-    this.renderer = e, this.container = new V(), this.visible = !1, this.panel = new te().beginFill(0, 0.65).drawRoundedRect(0, 0, 260, 120, 8).endFill(), this.text = new se("Glass HUD", { fontSize: 12, fill: 16777215 }), this.text.position.set(12, 10), this.container.addChild(this.panel, this.text), this.container.visible = this.visible, this.container.position.set(12, 12);
+    this.renderer = e, this.container = new W(), this.visible = !1, this.panel = new te().beginFill(0, 0.65).drawRoundedRect(0, 0, 260, 120, 8).endFill(), this.text = new se("Glass HUD", { fontSize: 12, fill: 16777215 }), this.text.position.set(12, 10), this.container.addChild(this.panel, this.text), this.container.visible = this.visible, this.container.position.set(12, 12);
   }
   setVisible(e) {
     this.visible = e, this.container.visible = e;
@@ -921,7 +891,7 @@ class Pe {
 `);
   }
 }
-class Ue {
+class Be {
   constructor(e, t) {
     this.tracked = /* @__PURE__ */ new Map(), this.handleAnimationStart = (i) => {
       const a = i.currentTarget;
@@ -929,7 +899,7 @@ class Ue {
     }, this.handleAnimationEnd = (i) => {
       const a = i.currentTarget;
       a.getAnimations().length === 0 && this.stopPolling(a);
-    }, this.background = t.background, this.system = new we(e, t.systemOptions), this.system.setOpaqueSceneCallback((i) => {
+    }, this.background = t.background, this.system = new Re(e, t.systemOptions), this.system.setOpaqueSceneCallback((i) => {
       e.render({ container: this.background, target: i, clear: !0 });
     });
     const s = this.system.getCompositeDisplay();
@@ -1004,11 +974,11 @@ class Ue {
       const b = this.parseBorderRadius(e, n);
       c = t.cornerRadius ?? b;
     }
-    const u = t.bevelSize ?? 12, h = t.surfaceShape ?? "squircle", f = t.flipX ?? !1, g = t.flipY ?? !1, d = t.bezierCurve, o = Math.floor(Math.min(n.width, n.height)), y = l ? o : n.width, R = l ? o : n.height, x = t.normalMap || Q(y, R, c, u, h, f, g, d), E = this.system.createPanel({
+    const u = t.bevelSize ?? 12, h = t.surfaceShape ?? "squircle", f = t.flipX ?? !1, g = t.flipY ?? !1, d = t.bezierCurve, o = Math.floor(Math.min(n.width, n.height)), y = l ? o : n.width, w = l ? o : n.height, T = t.normalMap || Q(y, w, c, u, h, f, g, d), C = this.system.createPanel({
       material: a,
-      normalMap: x
+      normalMap: T
     });
-    return this.tracked.set(e, { panel: E, config: t, lastRect: n, lastRadius: c, visible: !0, isCircle: l, polling: !1 }), (m = this.resizeObserver) == null || m.observe(e), (v = this.intersectionObserver) == null || v.observe(e), e.addEventListener("transitionrun", this.handleAnimationStart), e.addEventListener("transitionend", this.handleAnimationEnd), e.addEventListener("transitioncancel", this.handleAnimationEnd), e.addEventListener("animationstart", this.handleAnimationStart), e.addEventListener("animationend", this.handleAnimationEnd), e.addEventListener("animationcancel", this.handleAnimationEnd), this.syncElement(e, E), E;
+    return this.tracked.set(e, { panel: C, config: t, lastRect: n, lastRadius: c, visible: !0, isCircle: l, polling: !1 }), (m = this.resizeObserver) == null || m.observe(e), (v = this.intersectionObserver) == null || v.observe(e), e.addEventListener("transitionrun", this.handleAnimationStart), e.addEventListener("transitionend", this.handleAnimationEnd), e.addEventListener("transitioncancel", this.handleAnimationEnd), e.addEventListener("animationstart", this.handleAnimationStart), e.addEventListener("animationend", this.handleAnimationEnd), e.addEventListener("animationcancel", this.handleAnimationEnd), this.syncElement(e, C), C;
   }
   startPolling(e) {
     const t = this.tracked.get(e);
@@ -1096,10 +1066,10 @@ class Ue {
     t.panel.setTextures({ normalMap: o }), t.lastRect = s, t.lastRadius = a;
   }
 }
-function Re(r) {
+function we(r) {
   return Math.sqrt(Math.max(0, 2 * r - r * r));
 }
-function xe(r) {
+function Te(r) {
   const e = Math.sqrt(Math.max(1e-4, 2 * r - r * r));
   return (1 - r) / e;
 }
@@ -1111,15 +1081,15 @@ function _(r) {
   const e = 1 - Math.pow(1 - r, 4);
   return e <= 1e-4 ? 0 : Math.pow(1 - r, 3) / Math.pow(e, 0.75);
 }
-function Te(r) {
+function xe(r) {
   const e = Math.max(0, Math.min(1, r));
   return e * e * e * (e * (e * 6 - 15) + 10);
 }
-function Ce(r) {
+function Ee(r) {
   const e = Math.max(0, Math.min(1, r));
   return 30 * e * e * (e - 1) * (e - 1);
 }
-function Ee(r, e, t, s, i) {
+function Ce(r, e, t, s, i) {
   const a = 1 - r;
   return a * a * a * e + 3 * a * a * r * t + 3 * a * r * r * s + r * r * r * i;
 }
@@ -1128,7 +1098,7 @@ function Ae(r, e, t, s, i) {
   return 3 * a * a * (t - e) + 6 * a * r * (s - t) + 3 * r * r * (i - s);
 }
 function De(r, e) {
-  const t = Ee(r, 0, e[1], e[3], 1), s = Ae(r, 0, e[1], e[3], 1);
+  const t = Ce(r, 0, e[1], e[3], 1), s = Ae(r, 0, e[1], e[3], 1);
   return { height: t, derivative: s };
 }
 function ke(r, e, t) {
@@ -1136,7 +1106,7 @@ function ke(r, e, t) {
     return De(r, t);
   switch (e) {
     case "circle":
-      return { height: Re(r), derivative: xe(r) };
+      return { height: we(r), derivative: Te(r) };
     case "squircle":
       return { height: L(r), derivative: _(r) };
     case "concave": {
@@ -1144,7 +1114,7 @@ function ke(r, e, t) {
       return { height: 1 - s, derivative: -i };
     }
     case "lip": {
-      const s = L(r), i = _(r), a = 1 - s, n = -i, l = Te(r), c = Ce(r), u = s * (1 - l) + a * l, h = i * (1 - l) + n * l + (a - s) * c;
+      const s = L(r), i = _(r), a = 1 - s, n = -i, l = xe(r), c = Ee(r), u = s * (1 - l) + a * l, h = i * (1 - l) + n * l + (a - s) * c;
       return { height: u, derivative: h };
     }
     case "dome": {
@@ -1167,32 +1137,32 @@ function Q(r, e, t, s, i, a = !1, n = !1, l) {
   const c = Math.ceil(r), u = Math.ceil(e), h = new Uint8Array(c * u * 4);
   for (let f = 0; f < u; f++)
     for (let g = 0; g < c; g++) {
-      let d = 0, o = 0, y = 1, R = 255;
-      const x = (c - 1) / 2, E = (u - 1) / 2, m = Math.abs(g - x), v = Math.abs(f - E), b = c / 2 - t, M = u / 2 - t;
-      let T = 0, G = 0, z = 0, A = m, D = v;
+      let d = 0, o = 0, y = 1, w = 255;
+      const T = (c - 1) / 2, C = (u - 1) / 2, m = Math.abs(g - T), v = Math.abs(f - C), b = c / 2 - t, M = u / 2 - t;
+      let x = 0, z = 0, V = 0, A = m, D = v;
       if (m <= b && v <= M) {
-        const S = b + t, w = M + t;
-        S - m < w - v ? (A = b + t, D = v) : (A = m, D = M + t), T = Math.min(S - m, w - v);
+        const S = b + t, R = M + t;
+        S - m < R - v ? (A = b + t, D = v) : (A = m, D = M + t), x = Math.min(S - m, R - v);
       } else if (m > b && v <= M)
-        A = b + t, D = v, T = t - (m - b);
+        A = b + t, D = v, x = t - (m - b);
       else if (v > M && m <= b)
-        A = m, D = M + t, T = t - (v - M);
+        A = m, D = M + t, x = t - (v - M);
       else {
-        const S = m - b, w = v - M, C = Math.sqrt(S * S + w * w);
-        T = t - C, C > 0 && (A = b + S / C * t, D = M + w / C * t);
+        const S = m - b, R = v - M, E = Math.sqrt(S * S + R * R);
+        x = t - E, E > 0 && (A = b + S / E * t, D = M + R / E * t);
       }
-      T < 0 && (R = 0);
-      const B = A - m, N = D - v, O = Math.sqrt(B * B + N * N);
-      if (O > 1e-3 && (G = (g > x ? 1 : -1) * (B / O), z = (f > E ? 1 : -1) * (N / O)), s > 0 && T < s && T >= 0) {
-        let S = 1 - T / s;
+      x < 0 && (w = 0);
+      const O = A - m, U = D - v, I = Math.sqrt(O * O + U * U);
+      if (I > 1e-3 && (z = (g > T ? 1 : -1) * (O / I), V = (f > C ? 1 : -1) * (U / I)), s > 0 && x < s && x >= 0) {
+        let S = 1 - x / s;
         n && (S = 1 - S);
-        const { derivative: w } = ke(S, i, l), C = n ? -1 : 1;
-        d = G * w * 0.5 * C, o = z * w * 0.5 * C, a && (d = -d, o = -o);
+        const { derivative: R } = ke(S, i, l), E = n ? -1 : 1;
+        d = z * R * 0.5 * E, o = V * R * 0.5 * E, a && (d = -d, o = -o);
       }
-      const I = Math.sqrt(d * d + o * o + y * y);
-      d /= I, o /= I, y /= I;
+      const N = Math.sqrt(d * d + o * o + y * y);
+      d /= N, o /= N, y /= N;
       const P = (f * c + g) * 4;
-      h[P] = (d * 0.5 + 0.5) * 255 | 0, h[P + 1] = (o * 0.5 + 0.5) * 255 | 0, h[P + 2] = (y * 0.5 + 0.5) * 255 | 0, h[P + 3] = R;
+      h[P] = (d * 0.5 + 0.5) * 255 | 0, h[P + 1] = (o * 0.5 + 0.5) * 255 | 0, h[P + 2] = (y * 0.5 + 0.5) * 255 | 0, h[P + 3] = w;
     }
   return p.from({
     resource: h,
@@ -1205,15 +1175,15 @@ export {
   ie as CapabilityProbe,
   ne as EventBus,
   Pe as GlassHUD,
-  Ue as GlassOverlay,
+  Be as GlassOverlay,
   fe as GlassPanel,
   le as GlassPresets,
-  we as GlassSystem,
-  $ as SceneRTManager,
+  Re as GlassSystem,
+  j as SceneRTManager,
   De as getBezierHeightAndDerivative,
   ke as getHeightAndDerivative,
-  Re as heightCircle,
+  we as heightCircle,
   L as heightSquircle,
-  Te as smootherstep
+  xe as smootherstep
 };
 //# sourceMappingURL=pixi-adaptive-glass.es.js.map

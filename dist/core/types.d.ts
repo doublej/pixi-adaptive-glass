@@ -25,9 +25,6 @@ export interface GlassMaterial {
     blurAngle?: number;
     blurAnisotropy?: number;
     blurGamma?: number;
-    specularNoise?: number;
-    surfaceWarp?: number;
-    lightJitter?: number;
     aberrationR?: number;
     aberrationB?: number;
     ao?: number;

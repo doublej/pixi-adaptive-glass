@@ -449,9 +449,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -522,59 +519,55 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
 
   const matParams = {
     // Refraction
-    ior: 1.37,
-    thickness: 2.77,
+    ior: 1.6630434782608696,
+    thickness: 1.2608695652173914,
     opacity: 1,
-    tint: '#ccbaa3',
+    tint: '#dde1ff',
     // Dispersion
-    dispersion: 0.17,
-    aberrationR: 0.39,
-    aberrationB: 0.51,
+    dispersion: 0.1826086956521739,
+    aberrationR: 1.4782608695652173,
+    aberrationB: 1,
     // Blur
-    roughness: 0.16,
-    blurSamples: 32,
-    blurSpread: 14.4,
+    roughness: 0.8586956521739131,
+    blurSamples: 10,
+    blurSpread: 6.7771739130434785,
     blurAngle: 0,
     blurAnisotropy: 0,
-    blurGamma: 0.69,
-    // Imperfections
-    specularNoise: 0,
-    surfaceWarp: 0.49,
-    lightJitter: 0.23,
+    blurGamma: 1,
     // Lighting
-    specular: 0.16,
-    shininess: 79,
-    shadow: 0.13,
-    lightX: -0.9,
-    lightY: 0.68,
-    lightZ: 0.43,
+    specular: 0.3695652173913043,
+    shininess: 86.92391304347827,
+    shadow: 0.21739130434782608,
+    lightX: 0.5,
+    lightY: 0.4782608695652173,
+    lightZ: 1,
     // Bevel
     surfaceShape: 'circle' as SurfaceShape,
-    bevelSize: 12.8,
-    flipX: true,
+    bevelSize: 16,
+    flipX: false,
     flipY: true,
     // AO
-    ao: 0.26,
-    aoRadius: 0.93,
+    ao: 0.3,
+    aoRadius: 0.5,
     // Noise
-    noiseScale: 10,
-    noiseIntensity: 0.01,
-    noiseRotation: 147.31,
+    noiseScale: 2,
+    noiseIntensity: 0,
+    noiseRotation: 0,
     noiseThreshold: 0,
     // Corners
-    cornerRadius: 64,
+    cornerRadius: 20,
     useHtmlRadius: false,
     // Edges
-    edgeSmoothWidth: 0.16,
-    edgeContrast: 0.16,
-    edgeAlphaFalloff: 0.16,
-    edgeMaskCutoff: 0.1,
-    enableEdgeSmoothing: false,
-    enableContrastReduction: false,
-    enableAlphaFalloff: false,
+    edgeSmoothWidth: 0.15,
+    edgeContrast: 0.7,
+    edgeAlphaFalloff: 1,
+    edgeMaskCutoff: 0.001,
+    enableEdgeSmoothing: true,
+    enableContrastReduction: true,
+    enableAlphaFalloff: true,
     enableTintOpacity: true,
-    edgeBlur: 0.8,
-    glassSupersampling: 2,
+    edgeBlur: 1,
+    glassSupersampling: 1,
   };
 
   const applyToAll = (partial: any) => {
@@ -586,7 +579,7 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
 
   // Apply initial tint on load
   setTimeout(() => {
-    applyToAll({ tint: 0xccbaa3 });
+    applyToAll({ tint: 0xdde1ff });
   }, 100);
 
   // === TABS STRUCTURE ===
@@ -719,19 +712,11 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     applyToAll({ shadow: ev.value });
   });
 
-  // Cursor-follow light settings
-  const lightFollowParams = {
-    followCursor: false,
-    smoothing: 0.03,
-    curve: 0.3,
-    zMin: 0.2,
-    zMax: 0.8,
-  };
+  // Cursor-follow light
+  const lightFollowParams = { followCursor: false };
 
-  const cursorFolder = lightingTab.addFolder({ title: 'Cursor Follow', expanded: false });
-
-  cursorFolder.addBinding(lightFollowParams, 'followCursor', {
-    label: 'enabled',
+  lightingTab.addBinding(lightFollowParams, 'followCursor', {
+    label: 'follow cursor',
   }).on('change', (ev: any) => {
     if (ev.value) {
       window.addEventListener('mousemove', updateLightFromCursor);
@@ -740,63 +725,18 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     }
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'smoothing', {
-    min: 0.005, max: 1, step: 0.005,
-    label: 'smoothing',
-  });
-
-  cursorFolder.addBinding(lightFollowParams, 'curve', {
-    min: 0.1, max: 1, step: 0.05,
-    label: 'curve power',
-  });
-
-  cursorFolder.addBinding(lightFollowParams, 'zMin', {
-    min: 0, max: 1, step: 0.05,
-    label: 'Z min',
-  });
-
-  cursorFolder.addBinding(lightFollowParams, 'zMax', {
-    min: 0, max: 1, step: 0.05,
-    label: 'Z max',
-  });
-
-  // Smoothing state for cursor-follow light
-  const lightTarget = { x: 0.5, y: 0.5, z: 0.8 };
-  let lightAnimFrame: number | null = null;
-
   const updateLightFromCursor = (e: MouseEvent) => {
     // Convert cursor position to -1 to 1 range
-    let x = (e.clientX / window.innerWidth) * 2 - 1;
-    let y = (e.clientY / window.innerHeight) * 2 - 1; // Y: top = -1, bottom = 1
-
-    // Apply S-curve to spend more time at extremes, less in middle
-    x = Math.sign(x) * Math.pow(Math.abs(x), lightFollowParams.curve);
-    y = Math.sign(y) * Math.pow(Math.abs(y), lightFollowParams.curve);
-
+    const x = (e.clientX / window.innerWidth) * 2 - 1;
+    const y = -((e.clientY / window.innerHeight) * 2 - 1); // Invert Y
     const z = 1 - Math.sqrt(x * x + y * y) * 0.5; // Z decreases toward edges
 
-    lightTarget.x = x;
-    lightTarget.y = y;
-    lightTarget.z = Math.min(lightFollowParams.zMax, Math.max(lightFollowParams.zMin, z));
+    matParams.lightX = x;
+    matParams.lightY = y;
+    matParams.lightZ = Math.min(0.8, Math.max(0.3, z)); // Cap Z to 0.8
 
-    if (!lightAnimFrame) {
-      const animateLight = () => {
-        matParams.lightX += (lightTarget.x - matParams.lightX) * lightFollowParams.smoothing;
-        matParams.lightY += (lightTarget.y - matParams.lightY) * lightFollowParams.smoothing;
-        matParams.lightZ += (lightTarget.z - matParams.lightZ) * lightFollowParams.smoothing;
-
-        applyToAll({ lightDir: [matParams.lightX, matParams.lightY, matParams.lightZ] });
-        pane.refresh();
-
-        // Continue animating if still following cursor
-        if (lightFollowParams.followCursor) {
-          lightAnimFrame = requestAnimationFrame(animateLight);
-        } else {
-          lightAnimFrame = null;
-        }
-      };
-      lightAnimFrame = requestAnimationFrame(animateLight);
-    }
+    applyToAll({ lightDir: [matParams.lightX, matParams.lightY, matParams.lightZ] });
+    pane.refresh();
   };
 
   lightingTab.addBinding(matParams, 'lightX', {
@@ -818,30 +758,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     label: 'light Z',
   }).on('change', (ev: any) => {
     applyToAll({ lightDir: [matParams.lightX, matParams.lightY, ev.value] });
-  });
-
-  // Imperfections folder
-  const imperfectionsFolder = lightingTab.addFolder({ title: 'Imperfections', expanded: false });
-
-  imperfectionsFolder.addBinding(matParams, 'specularNoise', {
-    min: 0, max: 1, step: 0.01,
-    label: 'specular noise',
-  }).on('change', (ev: any) => {
-    applyToAll({ specularNoise: ev.value });
-  });
-
-  imperfectionsFolder.addBinding(matParams, 'surfaceWarp', {
-    min: 0, max: 1, step: 0.01,
-    label: 'surface warp',
-  }).on('change', (ev: any) => {
-    applyToAll({ surfaceWarp: ev.value });
-  });
-
-  imperfectionsFolder.addBinding(matParams, 'lightJitter', {
-    min: 0, max: 0.5, step: 0.01,
-    label: 'light jitter',
-  }).on('change', (ev: any) => {
-    applyToAll({ lightJitter: ev.value });
   });
 
   lightingTab.addBinding(matParams, 'ao', {
@@ -923,9 +839,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -979,9 +892,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -1131,9 +1041,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -1185,9 +1092,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -1291,9 +1195,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -1472,9 +1373,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
@@ -1547,9 +1445,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           blurAngle: matParams.blurAngle,
           blurAnisotropy: matParams.blurAnisotropy,
           blurGamma: matParams.blurGamma,
-          specularNoise: matParams.specularNoise,
-          surfaceWarp: matParams.surfaceWarp,
-          lightJitter: matParams.lightJitter,
           aberrationR: matParams.aberrationR,
           aberrationB: matParams.aberrationB,
           ao: matParams.ao,
