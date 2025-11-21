@@ -1,0 +1,23 @@
+<main id="app"></main>
+
+    <div id="panel-alpha" class="draggable-item glass-panel" style="left: 1260px; top: 661px; width: 200px; height: 250px; border-radius: 20px;">
+      <h3>Facet Alpha</h3>
+      <p>Standard Rounded Rect</p>
+    </div>
+    <div id="panel-beta" class="draggable-item glass-panel" style="left: 305px; top: 718px; width: 200px; height: 200px; border-radius: 50%; text-align: center; display: flex; flex-direction: column; justify-content: center;">
+      <h3>Panel Beta</h3>
+      <p>Circle</p>
+    </div>
+    <div id="panel-gamma" class="draggable-item  glass-circle" style="left: 776px; top: 802px; width: 50px; height: 50px;  display: flex; align-items: center; padding: 0 2rem;">
+      <div>
+      </div>
+    </div>
+
+    <!-- Example of data attributes for custom material -->
+    <!-- Note: data-glass-* attributes override Tweakpane settings for this panel only -->
+    <div id="panel-crystal" class="draggable-item glass-panel" data-glass-ior="1.5" data-glass-roughness="0.1" style="left: 862px; top: 467px; width: 250px; height: 250px; border-radius: 40px;">
+        <h3>Crystal Panel</h3>
+        <p>Squircle (custom IOR/roughness)</p>
+    </div>
+
+    <script type="module" src="/main.ts"></script>
