@@ -97,6 +97,7 @@ export declare class GlassOverlay {
     private currentLightDir;
     private targetLightDir;
     private boundMouseMove?;
+    private renderer;
     constructor(renderer: Renderer, options: GlassOverlayOptions);
     setLightFollowParams(params: LightFollowParams): void;
     autoMount(selector?: string): void;

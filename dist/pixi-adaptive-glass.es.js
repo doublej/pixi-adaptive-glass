@@ -352,7 +352,7 @@ class me {
     n.uInvResolution = [1 / t.width, 1 / t.height], n.uDispersion = e.glassMaterial.dispersion, n.uRoughness = e.glassMaterial.roughness, n.uDisplacementScale = e.glassMaterial.thickness * 0.1, n.uTint = J(e.glassMaterial.tint ?? 16777215), n.uOpacity = e.glassMaterial.opacity, n.uEnableDispersion = s.enableDispersion && e.glassMaterial.dispersion > 1e-3 ? 1 : 0, e.filters = [this.filter];
   }
 }
-const ge = `
+const ve = `
 precision mediump float;
 attribute vec2 aPosition;
 attribute vec2 aUV;
@@ -376,7 +376,7 @@ void main(void){
   vec2 clipPos = (worldPos / uResolution) * 2.0 - 1.0;
   gl_Position = vec4(clipPos, 0.0, 1.0);
 }
-`, ve = `
+`, ge = `
 precision highp float;
 varying vec2 vUv;
 uniform sampler2D uSceneColor;
@@ -702,7 +702,7 @@ class Me {
       uPanelSize: { value: new Float32Array([200, 200]), type: "vec2<f32>" }
     });
     this.refractShader = B.from({
-      gl: { vertex: H, fragment: ve },
+      gl: { vertex: H, fragment: ge },
       resources: {
         uSceneColor: p.WHITE.source,
         uNormalMap: p.WHITE.source,
@@ -723,7 +723,7 @@ class Me {
         panelUniforms: i
       }
     }), this.compositeShader = B.from({
-      gl: { vertex: ge, fragment: be },
+      gl: { vertex: ve, fragment: be },
       resources: {
         uSceneColor: p.WHITE.source,
         uAccum: p.WHITE.source,
@@ -767,14 +767,14 @@ class Me {
     this.renderer.render({ container: n, target: e, clear: !0, clearColor: [t, s, i, a] });
   }
   renderPanel(e, t, s) {
-    var h, f, v, d;
+    var h, f, g, d;
     if (!this.accumRT || !this.revealRT) return;
     const i = e.normalMap ?? p.WHITE, a = this.renderer.screen.width, n = this.renderer.screen.height, l = this.refractShader.resources;
     if (l) {
       l.uSceneColor = s.source, l.uNormalMap = i.source, l.uCausticsMap = (e.causticsAtlas ?? p.WHITE).source;
       const o = (h = l.panelUniforms) == null ? void 0 : h.uniforms;
       if (o) {
-        const y = ((v = (f = this.accumRT) == null ? void 0 : f.source) == null ? void 0 : v._resolution) ?? this.renderer.resolution;
+        const y = ((g = (f = this.accumRT) == null ? void 0 : f.source) == null ? void 0 : g._resolution) ?? this.renderer.resolution;
         o.uPosition[0] = e.position.x, o.uPosition[1] = e.position.y, o.uScale[0] = e.scale.x, o.uScale[1] = e.scale.y, o.uResolution[0] = a, o.uResolution[1] = n, o.uInvResolution[0] = 1 / (a * y), o.uInvResolution[1] = 1 / (n * y), o.uIOR = e.glassMaterial.ior, o.uThickness = e.glassMaterial.thickness, o.uDispersion = e.glassMaterial.dispersion, o.uRoughness = e.glassMaterial.roughness, o.uOpacity = e.glassMaterial.opacity ?? 1, o.uEnableDispersion = t.enableDispersion && e.glassMaterial.dispersion > 1e-3 ? 1 : 0, o.uEnableCaustics = t.enableCaustics && e.causticsAtlas ? 1 : 0;
         const R = J(e.glassMaterial.tint ?? 16777215);
         o.uTint[0] = R[0], o.uTint[1] = R[1], o.uTint[2] = R[2], o.uSpecular = e.glassMaterial.specular ?? 0, o.uShininess = e.glassMaterial.shininess ?? 32, o.uShadow = e.glassMaterial.shadow ?? 0;
@@ -899,7 +899,7 @@ class Be {
     }, this.handleAnimationEnd = (i) => {
       const a = i.currentTarget;
       a.getAnimations().length === 0 && this.stopPolling(a);
-    }, this.background = t.background, this.system = new we(e, t.systemOptions), this.system.setOpaqueSceneCallback((i) => {
+    }, this.renderer = e, this.background = t.background, this.system = new we(e, t.systemOptions), this.system.setOpaqueSceneCallback((i) => {
       e.render({ container: this.background, target: i, clear: !0 });
     });
     const s = this.system.getCompositeDisplay();
@@ -907,8 +907,8 @@ class Be {
   }
   setLightFollowParams(e) {
     this.lightFollowParams = e, e.followCursor && !this.boundMouseMove ? (this.boundMouseMove = (t) => {
-      const s = e.curve ?? 1.5, i = e.zMin ?? 0.3, a = e.zMax ?? 1, n = t.clientX / window.innerWidth * 2 - 1, l = -(t.clientY / window.innerHeight * 2 - 1), c = Math.sqrt(n * n + l * l), u = Math.max(i, Math.min(a, 1 - Math.pow(c, s) * 0.5));
-      this.targetLightDir = [n, l, u];
+      const s = e.curve ?? 1.5, i = e.zMin ?? 0.3, a = e.zMax ?? 1, l = this.renderer.canvas.getBoundingClientRect(), c = (t.clientX - l.left) / l.width * 2 - 1, u = -((t.clientY - l.top) / l.height * 2 - 1), h = Math.sqrt(c * c + u * u), f = Math.max(i, Math.min(a, 1 - Math.pow(h, s) * 0.5));
+      this.targetLightDir = [c, u, f];
     }, window.addEventListener("mousemove", this.boundMouseMove)) : !e.followCursor && this.boundMouseMove && (window.removeEventListener("mousemove", this.boundMouseMove), this.boundMouseMove = void 0);
   }
   autoMount(e = ".glass-panel") {
@@ -964,7 +964,7 @@ class Be {
     });
   }
   track(e, t = {}) {
-    var m, g;
+    var m, v;
     if (this.tracked.has(e))
       return this.tracked.get(e).panel;
     const s = e.dataset.glassIor ? parseFloat(e.dataset.glassIor) : void 0, i = e.dataset.glassRoughness ? parseFloat(e.dataset.glassRoughness) : void 0, a = {
@@ -980,11 +980,11 @@ class Be {
       const b = this.parseBorderRadius(e, n);
       c = t.cornerRadius ?? b;
     }
-    const u = t.bevelSize ?? 12, h = t.surfaceShape ?? "squircle", f = t.flipX ?? !1, v = t.flipY ?? !1, d = t.bezierCurve, o = Math.floor(Math.min(n.width, n.height)), y = l ? o : n.width, R = l ? o : n.height, x = t.normalMap || Q(y, R, c, u, h, f, v, d), C = this.system.createPanel({
+    const u = t.bevelSize ?? 12, h = t.surfaceShape ?? "squircle", f = t.flipX ?? !1, g = t.flipY ?? !1, d = t.bezierCurve, o = Math.floor(Math.min(n.width, n.height)), y = l ? o : n.width, R = l ? o : n.height, x = t.normalMap || Q(y, R, c, u, h, f, g, d), C = this.system.createPanel({
       material: a,
       normalMap: x
     });
-    return this.tracked.set(e, { panel: C, config: t, lastRect: n, lastRadius: c, visible: !0, isCircle: l, polling: !1 }), (m = this.resizeObserver) == null || m.observe(e), (g = this.intersectionObserver) == null || g.observe(e), e.addEventListener("transitionrun", this.handleAnimationStart), e.addEventListener("transitionend", this.handleAnimationEnd), e.addEventListener("transitioncancel", this.handleAnimationEnd), e.addEventListener("animationstart", this.handleAnimationStart), e.addEventListener("animationend", this.handleAnimationEnd), e.addEventListener("animationcancel", this.handleAnimationEnd), this.syncElement(e, C), C;
+    return this.tracked.set(e, { panel: C, config: t, lastRect: n, lastRadius: c, visible: !0, isCircle: l, polling: !1 }), (m = this.resizeObserver) == null || m.observe(e), (v = this.intersectionObserver) == null || v.observe(e), e.addEventListener("transitionrun", this.handleAnimationStart), e.addEventListener("transitionend", this.handleAnimationEnd), e.addEventListener("transitioncancel", this.handleAnimationEnd), e.addEventListener("animationstart", this.handleAnimationStart), e.addEventListener("animationend", this.handleAnimationEnd), e.addEventListener("animationcancel", this.handleAnimationEnd), this.syncElement(e, C), C;
   }
   startPolling(e) {
     const t = this.tracked.get(e);
@@ -1066,8 +1066,8 @@ class Be {
       const y = this.parseBorderRadius(e, s);
       a = t.config.cornerRadius ?? y;
     }
-    const n = t.config.bevelSize ?? 12, l = t.config.surfaceShape ?? "squircle", c = t.config.flipX ?? !1, u = t.config.flipY ?? !1, h = t.config.bezierCurve, f = Math.floor(Math.min(s.width, s.height)), v = i ? f : s.width, d = i ? f : s.height, o = Q(
-      v,
+    const n = t.config.bevelSize ?? 12, l = t.config.surfaceShape ?? "squircle", c = t.config.flipX ?? !1, u = t.config.flipY ?? !1, h = t.config.bezierCurve, f = Math.floor(Math.min(s.width, s.height)), g = i ? f : s.width, d = i ? f : s.height, o = Q(
+      g,
       d,
       a,
       n,
@@ -1149,24 +1149,24 @@ function ke(r, e, t) {
 function Q(r, e, t, s, i, a = !1, n = !1, l) {
   const c = Math.ceil(r), u = Math.ceil(e), h = new Uint8Array(c * u * 4);
   for (let f = 0; f < u; f++)
-    for (let v = 0; v < c; v++) {
+    for (let g = 0; g < c; g++) {
       let d = 0, o = 0, y = 1, R = 255;
-      const x = (c - 1) / 2, C = (u - 1) / 2, m = Math.abs(v - x), g = Math.abs(f - C), b = c / 2 - t, M = u / 2 - t;
-      let T = 0, W = 0, V = 0, A = m, D = g;
-      if (m <= b && g <= M) {
+      const x = (c - 1) / 2, C = (u - 1) / 2, m = Math.abs(g - x), v = Math.abs(f - C), b = c / 2 - t, M = u / 2 - t;
+      let T = 0, W = 0, V = 0, A = m, D = v;
+      if (m <= b && v <= M) {
         const S = b + t, w = M + t;
-        S - m < w - g ? (A = b + t, D = g) : (A = m, D = M + t), T = Math.min(S - m, w - g);
-      } else if (m > b && g <= M)
-        A = b + t, D = g, T = t - (m - b);
-      else if (g > M && m <= b)
-        A = m, D = M + t, T = t - (g - M);
+        S - m < w - v ? (A = b + t, D = v) : (A = m, D = M + t), T = Math.min(S - m, w - v);
+      } else if (m > b && v <= M)
+        A = b + t, D = v, T = t - (m - b);
+      else if (v > M && m <= b)
+        A = m, D = M + t, T = t - (v - M);
       else {
-        const S = m - b, w = g - M, E = Math.sqrt(S * S + w * w);
+        const S = m - b, w = v - M, E = Math.sqrt(S * S + w * w);
         T = t - E, E > 0 && (A = b + S / E * t, D = M + w / E * t);
       }
       T < 0 && (R = 0);
-      const O = A - m, L = D - g, U = Math.sqrt(O * O + L * L);
-      if (U > 1e-3 && (W = (v > x ? 1 : -1) * (O / U), V = (f > C ? 1 : -1) * (L / U)), s > 0 && T < s && T >= 0) {
+      const O = A - m, L = D - v, U = Math.sqrt(O * O + L * L);
+      if (U > 1e-3 && (W = (g > x ? 1 : -1) * (O / U), V = (f > C ? 1 : -1) * (L / U)), s > 0 && T < s && T >= 0) {
         let S = 1 - T / s;
         n && (S = 1 - S);
         const { derivative: w } = ke(S, i, l), E = n ? -1 : 1;
@@ -1174,7 +1174,7 @@ function Q(r, e, t, s, i, a = !1, n = !1, l) {
       }
       const I = Math.sqrt(d * d + o * o + y * y);
       d /= I, o /= I, y /= I;
-      const P = (f * c + v) * 4;
+      const P = (f * c + g) * 4;
       h[P] = (d * 0.5 + 0.5) * 255 | 0, h[P + 1] = (o * 0.5 + 0.5) * 255 | 0, h[P + 2] = (y * 0.5 + 0.5) * 255 | 0, h[P + 3] = R;
     }
   return p.from({

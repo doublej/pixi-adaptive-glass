@@ -137,7 +137,10 @@ export class GlassOverlay {
   private targetLightDir: [number, number, number] = [0.5, 0.5, 1];
   private boundMouseMove?: (e: MouseEvent) => void;
 
+  private renderer: Renderer;
+
   constructor(renderer: Renderer, options: GlassOverlayOptions) {
+    this.renderer = renderer;
     this.background = options.background;
     this.system = new GlassSystem(renderer, options.systemOptions);
 
@@ -165,9 +168,13 @@ export class GlassOverlay {
         const zMin = params.zMin ?? 0.3;
         const zMax = params.zMax ?? 1;
 
-        // Convert cursor position to -1 to 1 range
-        const x = (e.clientX / window.innerWidth) * 2 - 1;
-        const y = -((e.clientY / window.innerHeight) * 2 - 1); // Invert Y
+        // Get canvas bounds for proper coordinate mapping
+        const canvas = this.renderer.canvas as HTMLCanvasElement;
+        const rect = canvas.getBoundingClientRect();
+
+        // Convert cursor position to -1 to 1 range relative to canvas
+        const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -(((e.clientY - rect.top) / rect.height) * 2 - 1); // Invert Y
 
         // Z decreases toward edges based on curve
         const dist = Math.sqrt(x * x + y * y);
