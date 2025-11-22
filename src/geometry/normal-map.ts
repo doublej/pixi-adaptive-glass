@@ -129,6 +129,7 @@ export function createDisplacementMapData(
   radius: number,
   bevel: number,
   shape: SurfaceShape = 'squircle',
+  invert: boolean = false,
 ): { data: Uint8Array; width: number; height: number } {
   const w = Math.ceil(width);
   const h = Math.ceil(height);
@@ -148,6 +149,10 @@ export function createDisplacementMapData(
         displacement = 0; // Outside shape
       }
 
+      if (invert) {
+        displacement = 255 - displacement;
+      }
+
       const index = (y * w + x) * 4;
       data[index] = displacement;
       data[index + 1] = displacement;
@@ -165,8 +170,9 @@ export function createDisplacementMap(
   radius: number,
   bevel: number,
   shape: SurfaceShape = 'squircle',
+  invert: boolean = false,
 ): Texture {
-  const result = createDisplacementMapData(width, height, radius, bevel, shape);
+  const result = createDisplacementMapData(width, height, radius, bevel, shape, invert);
   return Texture.from({
     resource: result.data,
     width: result.width,
