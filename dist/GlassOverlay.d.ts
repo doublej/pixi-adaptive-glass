@@ -69,13 +69,13 @@ export interface GlassItemConfig {
      */
     bevelSize?: number;
     /**
-     * Flip the normal map on X axis. Defaults to false.
+     * Invert the normals (makes convex appear concave). Defaults to false.
      */
-    flipX?: boolean;
+    invertNormals?: boolean;
     /**
-     * Flip the normal map on Y axis. Defaults to false.
+     * Invert the shape curve direction. Defaults to false.
      */
-    flipY?: boolean;
+    invertCurve?: boolean;
     /**
      * Bezier curve control points for custom bevel shape [x1, y1, x2, y2].
      * When provided, overrides surfaceShape.

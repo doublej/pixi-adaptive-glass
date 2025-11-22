@@ -136,8 +136,8 @@ export function createPillNormalMap(
   expansion: number,
   bevel: number,
   shape: SurfaceShape,
-  flipX: boolean = false,
-  flipY: boolean = false,
+  invertNormals: boolean = false,
+  invertCurve: boolean = false,
 ): Texture {
   const w = Math.ceil(width);
   const h = Math.ceil(height);
@@ -195,12 +195,12 @@ export function createPillNormalMap(
       // Apply bevel based on distance to boundary
       if (bevel > 0 && distToBoundary < bevel && distToBoundary >= 0) {
         let t = 1 - distToBoundary / bevel;
-        if (flipY) t = 1 - t;
+        if (invertCurve) t = 1 - t;
         const { derivative } = getHeightAndDerivative(t, shape);
-        const sign = flipY ? -1 : 1;
+        const sign = invertCurve ? -1 : 1;
         nx = dirX * derivative * 0.5 * sign;
         ny = dirY * derivative * 0.5 * sign;
-        if (flipX) {
+        if (invertNormals) {
           nx = -nx;
           ny = -ny;
         }

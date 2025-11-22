@@ -187,6 +187,7 @@ uniform float uNoiseRotation;
 uniform float uNoiseThreshold;
 uniform float uEdgeSupersampling;
 uniform float uGlassSupersampling;
+uniform vec4 uEdgeIor; // rangeStart, rangeEnd, strength, enabled
 uniform vec2 uPanelSize;
 
 // Edge mask system
@@ -421,7 +422,14 @@ void main(){
     normal += noiseNormal;
   }
 
-  vec2 offset = normal * uThickness * 0.1 * (uIOR - 1.0);
+  // Attenuate IOR effect at edges to prevent harsh distortion
+  float effectiveIOR = uIOR;
+  if (uEdgeIor.w > 0.5) {
+    // Apply tactic: reduce IOR at edges based on range and strength
+    float iorFactor = 1.0 - smoothstep(uEdgeIor.x, uEdgeIor.y, edgeDist);
+    effectiveIOR = mix(uIOR, 1.0, iorFactor * uEdgeIor.z);
+  }
+  vec2 offset = normal * uThickness * 0.1 * (effectiveIOR - 1.0);
 
   vec3 refracted;
   if (uGlassSupersampling > 1.0) {

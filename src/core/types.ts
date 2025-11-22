@@ -2,7 +2,7 @@ import type { Filter, MeshGeometry, Texture } from 'pixi.js';
 
 export type CapabilityTier = 'webgl2' | 'webgl1';
 
-export type SurfaceShape = 'circle' | 'squircle' | 'concave' | 'lip' | 'dome' | 'ridge' | 'wave' | 'flat';
+export type SurfaceShape = 'circle' | 'squircle' | 'concave' | 'lip' | 'dome' | 'wave' | 'flat' | 'ramp';
 
 // Individual edge tactic configuration
 export interface EdgeTactic {
@@ -75,6 +75,11 @@ export interface GlassMaterial {
   enableTintOpacity?: boolean;
   edgeBlur?: number;
   glassSupersampling?: number;
+  // Edge IOR falloff controls (like alpha tactic)
+  edgeIorEnabled?: boolean; // enable IOR attenuation at edges
+  edgeIorRangeStart?: number; // 0 - 1, where attenuation begins (0 = edge)
+  edgeIorRangeEnd?: number; // 0 - 1, where attenuation ends (full IOR)
+  edgeIorStrength?: number; // 0 - 1, how much to reduce IOR (1 = reduce to 1.0)
   // New modular edge mask system
   edgeMask?: EdgeMaskConfig;
 }

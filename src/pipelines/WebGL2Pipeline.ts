@@ -101,6 +101,7 @@ export class WebGL2Pipeline implements Pipeline {
       uNoiseThreshold: { value: 0, type: 'f32' },
       uEdgeSupersampling: { value: 1, type: 'f32' },
       uGlassSupersampling: { value: 1, type: 'f32' },
+      uEdgeIor: { value: new Float32Array([0, 0.15, 1, 1]), type: 'vec4<f32>' }, // rangeStart, rangeEnd, strength, enabled
       uPanelSize: { value: new Float32Array([200, 200]), type: 'vec2<f32>' },
       // Edge mask system
       uEdgeMaskCutoff: { value: 0.001, type: 'f32' },
@@ -342,7 +343,7 @@ export class WebGL2Pipeline implements Pipeline {
     distResources.uSeedMap = readRT.source;
     const distUniforms = distResources.jfaUniforms?.uniforms;
     if (distUniforms) {
-      distUniforms.uMaxDistance = 0.15; // Same as previous calculateEdgeMask
+      distUniforms.uMaxDistance = 0.05; // Smaller = more detail in edge gradient
     }
 
     this.fullScreenQuad.shader = this.jfaDistanceShader;
@@ -461,6 +462,10 @@ export class WebGL2Pipeline implements Pipeline {
         uniforms.uNoiseThreshold = panel.glassMaterial.noiseThreshold ?? 0;
         uniforms.uEdgeSupersampling = quality.edgeSupersampling ?? 1;
         uniforms.uGlassSupersampling = panel.glassMaterial.glassSupersampling ?? 1;
+        uniforms.uEdgeIor[0] = panel.glassMaterial.edgeIorRangeStart ?? 0;
+        uniforms.uEdgeIor[1] = panel.glassMaterial.edgeIorRangeEnd ?? 0.15;
+        uniforms.uEdgeIor[2] = panel.glassMaterial.edgeIorStrength ?? 1;
+        uniforms.uEdgeIor[3] = panel.glassMaterial.edgeIorEnabled ? 1 : 0;
         uniforms.uPanelSize[0] = panel.scale.x;
         uniforms.uPanelSize[1] = panel.scale.y;
 

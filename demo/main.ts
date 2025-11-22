@@ -179,7 +179,7 @@ function createBackgroundLayer() {
 }
 
 // Cross-section visualization
-function drawCrossSection(canvas: HTMLCanvasElement, shape: SurfaceShape, bevelSize: number, flipX: boolean, flipY: boolean): void {
+function drawCrossSection(canvas: HTMLCanvasElement, shape: SurfaceShape, bevelSize: number, invertNormals: boolean, invertCurve: boolean): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
@@ -201,37 +201,32 @@ function drawCrossSection(canvas: HTMLCanvasElement, shape: SurfaceShape, bevelS
   ctx.lineWidth = 2;
   ctx.beginPath();
 
-  // Draw cross-section - show only right half to make flip X visible
+  // Draw only the bevel region (prioritize showing the curve, not flat center)
   for (let i = 0; i <= drawWidth; i++) {
-    // Distance from left edge (0) to right edge (1)
-    const normalizedPos = i / drawWidth;
-    // t goes from 1 at left edge to 0 at center to 1 at right edge
-    // But we only show right half: center (0) to right edge (1)
-    const t = normalizedPos; // 0 at left (center of glass) to 1 at right (edge)
+    // Map full width to bevel region only (t goes 0 to 1)
+    let bevelT = i / drawWidth;
 
-    // Apply bevel scaling
-    const bevelStart = 1 - (bevelSize / 50);
-    let bevelT = t <= bevelStart ? 0 : (t - bevelStart) / (1 - bevelStart);
+    // invertCurve reverses curve traversal (like in shader: t = 1 - t)
+    if (invertCurve) bevelT = 1 - bevelT;
 
-    // Flip inverts the curve direction for smooth connection
-    if (flipY) bevelT = 1 - bevelT;
+    // Get height from shape function (all shapes now follow same convention)
+    let { height } = getHeightAndDerivative(bevelT, shape);
 
-    // Height is inverted: flat center at top, bevels curve down
-    const { height } = getHeightAndDerivative(Math.min(1, bevelT), shape);
-    let yVal = flipY ? height * drawHeight * 0.8 : (1 - height) * drawHeight * 0.8;
+    // invertNormals inverts the normal direction (visual inversion)
+    if (invertNormals) height = 1 - height;
+    // invertCurve also negates normals in shader, so apply here too
+    if (invertCurve) height = 1 - height;
+
+    // Map to canvas coordinates (y=0 is top, so invert)
+    const yVal = (1 - height) * drawHeight * 0.8;
     const y = padding + yVal;
-    const x = flipX ? (w - padding - i) : (padding + i);
+    const x = padding + i;
 
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
 
   ctx.stroke();
-
-  // Label
-  ctx.fillStyle = '#666';
-  ctx.font = '10px monospace';
-  ctx.fillText('center → edge', padding, h - 3);
 }
 
 function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, transformParams: { offsetX: number; offsetY: number; scale: number; rotation: number }): void {
@@ -458,6 +453,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
@@ -536,8 +535,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     // Bevel
     surfaceShape: 'circle' as SurfaceShape,
     bevelSize: 16,
-    flipX: false,
-    flipY: true,
+    invertNormals: false,
+    invertCurve: false,
     // AO
     ao: 0.3,
     aoRadius: 0.5,
@@ -551,6 +550,11 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     useHtmlRadius: false,
     // Glass supersampling
     glassSupersampling: 1,
+    // Edge IOR falloff
+    edgeIorEnabled: true,
+    edgeIorRangeStart: 0,
+    edgeIorRangeEnd: 0.15,
+    edgeIorStrength: 1,
     // Edge Mask System
     edgeMaskCutoff: 0.001,
     edgeMaskBlur: 1,
@@ -689,8 +693,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       pillParams.expansion,
       matParams.bevelSize,
       matParams.surfaceShape,
-      matParams.flipX,
-      matParams.flipY,
+      matParams.invertNormals,
+      matParams.invertCurve,
     );
 
     pillPanel = system.createPanel({
@@ -720,6 +724,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         noiseRotation: matParams.noiseRotation,
         noiseThreshold: matParams.noiseThreshold,
         glassSupersampling: matParams.glassSupersampling,
+        edgeIorEnabled: matParams.edgeIorEnabled,
+        edgeIorRangeStart: matParams.edgeIorRangeStart,
+        edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+        edgeIorStrength: matParams.edgeIorStrength,
         edgeMask: buildEdgeMask(),
       },
       normalMap,
@@ -1013,8 +1021,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         cornerRadius: ev.value ? undefined : matParams.cornerRadius,
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1040,6 +1048,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
@@ -1058,8 +1070,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         cornerRadius: ev.value,
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1085,6 +1097,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
@@ -1116,6 +1132,21 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     label: 'supersampling',
   }).on('change', (ev: any) => {
     applyToAll({ glassSupersampling: ev.value });
+  });
+
+  // Edge IOR falloff folder
+  const edgeIorFolder = edgeMaskFolder.addFolder({ title: 'IOR Falloff', expanded: false });
+  edgeIorFolder.addBinding(matParams, 'edgeIorEnabled', { label: 'enabled' }).on('change', (ev: any) => {
+    applyToAll({ edgeIorEnabled: ev.value });
+  });
+  edgeIorFolder.addBinding(matParams, 'edgeIorRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', (ev: any) => {
+    applyToAll({ edgeIorRangeStart: ev.value });
+  });
+  edgeIorFolder.addBinding(matParams, 'edgeIorRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', (ev: any) => {
+    applyToAll({ edgeIorRangeEnd: ev.value });
+  });
+  edgeIorFolder.addBinding(matParams, 'edgeIorStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', (ev: any) => {
+    applyToAll({ edgeIorStrength: ev.value });
   });
 
   edgeMaskFolder.addBinding(matParams, 'edgeMaskBlur', {
@@ -1184,7 +1215,23 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
   // Bevel folder
   const bevelFolder = surfaceTab.addFolder({ title: 'Bevel', expanded: false });
 
-  // Cross-section visualization canvas (declare early for use in handlers)
+  // Shape list
+  const shapes: SurfaceShape[] = ['circle', 'squircle', 'concave', 'lip', 'dome', 'wave', 'flat', 'ramp'];
+  const shapeLabels: Record<SurfaceShape, string> = {
+    circle: 'Circle', squircle: 'Squircle', concave: 'Concave', lip: 'Lip',
+    dome: 'Dome', wave: 'Wave', flat: 'Flat', ramp: 'Ramp'
+  };
+
+  // Grid of all shape curves
+  const gridContainer = document.createElement('div');
+  gridContainer.style.display = 'grid';
+  gridContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+  gridContainer.style.gap = '4px';
+  gridContainer.style.marginBottom = '8px';
+
+  const shapeCanvases: Map<SurfaceShape, HTMLCanvasElement> = new Map();
+
+  // Large canvas for current selection
   const crossSectionCanvas = document.createElement('canvas');
   crossSectionCanvas.width = 320;
   crossSectionCanvas.height = 80;
@@ -1192,30 +1239,24 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
   crossSectionCanvas.style.borderRadius = '4px';
   crossSectionCanvas.style.marginTop = '8px';
 
-  // Flip toggles for cross-section (included in matParams for saving)
-  const redrawCrossSection = () => drawCrossSection(crossSectionCanvas, matParams.surfaceShape, matParams.bevelSize, matParams.flipX, matParams.flipY);
-
-  // Shape navigation with prev/next
-  const shapes: SurfaceShape[] = ['circle', 'squircle', 'concave', 'lip', 'dome', 'ridge', 'wave', 'flat'];
-  const shapeLabels: Record<SurfaceShape, string> = {
-    circle: 'Circle', squircle: 'Squircle', concave: 'Concave', lip: 'Lip',
-    dome: 'Dome', ridge: 'Ridge', wave: 'Wave', flat: 'Flat'
+  // Define functions first
+  const redrawAllCurves = () => {
+    shapes.forEach(shapeItem => {
+      const canvas = shapeCanvases.get(shapeItem);
+      if (canvas) {
+        drawCrossSection(canvas, shapeItem, matParams.bevelSize, matParams.invertNormals, matParams.invertCurve);
+        const wrapper = canvas.parentElement;
+        if (wrapper) {
+          wrapper.style.border = shapeItem === matParams.surfaceShape ? '2px solid #4a9eff' : '2px solid transparent';
+        }
+      }
+    });
   };
 
-  // Create buttons first
-  bevelFolder.addButton({ title: '← Prev' }).on('click', () => {
-    const idx = shapes.indexOf(matParams.surfaceShape);
-    const newIdx = (idx - 1 + shapes.length) % shapes.length;
-    applyShapeChange(shapes[newIdx]);
-  });
-
-  const shapeBtn = bevelFolder.addButton({ title: shapeLabels[matParams.surfaceShape] });
-
-  bevelFolder.addButton({ title: 'Next →' }).on('click', () => {
-    const idx = shapes.indexOf(matParams.surfaceShape);
-    const newIdx = (idx + 1) % shapes.length;
-    applyShapeChange(shapes[newIdx]);
-  });
+  const redrawCrossSection = () => {
+    drawCrossSection(crossSectionCanvas, matParams.surfaceShape, matParams.bevelSize, matParams.invertNormals, matParams.invertCurve);
+    redrawAllCurves();
+  };
 
   const applyShapeChange = (shape: SurfaceShape) => {
     matParams.surfaceShape = shape;
@@ -1225,8 +1266,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         cornerRadius: matParams.cornerRadius,
         surfaceShape: shape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1252,13 +1293,48 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
     });
-    shapeBtn.title = shapeLabels[shape];
     redrawCrossSection();
   };
+
+  // Create grid tiles
+  shapes.forEach(shape => {
+    const wrapper = document.createElement('div');
+    wrapper.style.cursor = 'pointer';
+    wrapper.style.borderRadius = '4px';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.border = shape === matParams.surfaceShape ? '2px solid #4a9eff' : '2px solid transparent';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 80;
+    canvas.height = 40;
+    canvas.style.width = '100%';
+    canvas.style.display = 'block';
+
+    const label = document.createElement('div');
+    label.textContent = shapeLabels[shape];
+    label.style.fontSize = '9px';
+    label.style.textAlign = 'center';
+    label.style.padding = '2px';
+    label.style.background = '#1a1a1a';
+    label.style.color = '#888';
+
+    wrapper.appendChild(canvas);
+    wrapper.appendChild(label);
+    gridContainer.appendChild(wrapper);
+    shapeCanvases.set(shape, canvas);
+
+    wrapper.addEventListener('click', () => {
+      applyShapeChange(shape);
+    });
+  });
 
   // Helper to regenerate panels with current bevel settings
   const applyBevelChange = () => {
@@ -1268,8 +1344,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         cornerRadius: matParams.cornerRadius,
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1295,6 +1371,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
@@ -1310,12 +1390,13 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       applyBevelChange();
     });
 
-  // Flip toggles - these regenerate panels
-  bevelFolder.addBinding(matParams, 'flipX', { label: 'flip X' }).on('change', applyBevelChange);
-  bevelFolder.addBinding(matParams, 'flipY', { label: 'flip Y' }).on('change', applyBevelChange);
+  // Invert toggles - these regenerate panels
+  bevelFolder.addBinding(matParams, 'invertNormals', { label: 'invert normals' }).on('change', applyBevelChange);
+  bevelFolder.addBinding(matParams, 'invertCurve', { label: 'invert curve' }).on('change', applyBevelChange);
 
-  // Append canvas to folder and do initial draw
+  // Append grid and canvas to folder and do initial draw
   const canvasContainer = document.createElement('div');
+  canvasContainer.appendChild(gridContainer);
   canvasContainer.appendChild(crossSectionCanvas);
   bevelFolder.element.appendChild(canvasContainer);
   redrawCrossSection();
@@ -1410,8 +1491,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
         cornerRadius: matParams.cornerRadius,
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1437,6 +1518,10 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
           glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
           edgeMask: buildEdgeMask(),
         },
       });
@@ -1476,6 +1561,136 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     updateProfileList();
   });
 
+  // New profile from defaults button
+  profilesFolder.addButton({ title: 'New from Defaults' }).on('click', () => {
+    // Reset matParams to default values
+    Object.assign(matParams, {
+      ior: 1.6630434782608696,
+      thickness: 1.2608695652173914,
+      opacity: 1,
+      tint: '#dde1ff',
+      dispersion: 0.1826086956521739,
+      aberrationR: 1.4782608695652173,
+      aberrationB: 1,
+      roughness: 0.8586956521739131,
+      blurSamples: 10,
+      blurSpread: 6.7771739130434785,
+      blurAngle: 0,
+      blurAnisotropy: 0,
+      blurGamma: 1,
+      specular: 0.3695652173913043,
+      shininess: 86.92391304347827,
+      shadow: 0.21739130434782608,
+      lightX: 0.5,
+      lightY: 0.4782608695652173,
+      lightZ: 1,
+      surfaceShape: 'circle' as SurfaceShape,
+      bevelSize: 16,
+      invertNormals: false,
+      invertCurve: false,
+      ao: 0.3,
+      aoRadius: 0.5,
+      noiseScale: 2,
+      noiseIntensity: 0,
+      noiseRotation: 0,
+      noiseThreshold: 0,
+      cornerRadius: 20,
+      useHtmlRadius: false,
+      glassSupersampling: 1,
+      edgeIorEnabled: true,
+      edgeIorRangeStart: 0,
+      edgeIorRangeEnd: 0.15,
+      edgeIorStrength: 1,
+      edgeMaskCutoff: 0.001,
+      edgeMaskBlur: 1,
+      edgeMaskInvert: false,
+      debugMode: 0,
+      smoothingEnabled: false,
+      smoothingRangeStart: 0,
+      smoothingRangeEnd: 0.3,
+      smoothingStrength: 1,
+      smoothingOpacity: 1,
+      contrastEnabled: false,
+      contrastRangeStart: 0,
+      contrastRangeEnd: 0.3,
+      contrastStrength: 0.7,
+      contrastOpacity: 1,
+      alphaEnabled: false,
+      alphaRangeStart: 0,
+      alphaRangeEnd: 0.2,
+      alphaStrength: 1,
+      alphaOpacity: 1,
+      tintEnabled: false,
+      tintRangeStart: 0,
+      tintRangeEnd: 0.5,
+      tintStrength: 0.5,
+      tintOpacity: 1,
+      darkenEnabled: false,
+      darkenRangeStart: 0,
+      darkenRangeEnd: 0.3,
+      darkenStrength: 0.3,
+      darkenOpacity: 1,
+      desaturateEnabled: false,
+      desaturateRangeStart: 0,
+      desaturateRangeEnd: 0.4,
+      desaturateStrength: 0.5,
+      desaturateOpacity: 1,
+      followCursor: false,
+      followDelay: 0.5,
+      followSmoothing: 0.9,
+      followCurve: 1.5,
+      followZMin: 0.05,
+      followZMax: 0.20,
+      followEdgeStretch: 0.5,
+    });
+    pane.refresh();
+    // Apply to all panels
+    document.querySelectorAll<HTMLElement>('.draggable-item').forEach((el) => {
+      overlay.untrack(el);
+      overlay.track(el, {
+        cornerRadius: matParams.cornerRadius,
+        surfaceShape: matParams.surfaceShape,
+        bevelSize: matParams.bevelSize,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
+        material: {
+          ior: matParams.ior,
+          roughness: matParams.roughness,
+          dispersion: matParams.dispersion,
+          thickness: matParams.thickness,
+          opacity: matParams.opacity,
+          tint: parseInt(matParams.tint.replace('#', ''), 16),
+          specular: matParams.specular,
+          shininess: matParams.shininess,
+          shadow: matParams.shadow,
+          lightDir: [matParams.lightX, matParams.lightY, matParams.lightZ] as [number, number, number],
+          blurSamples: matParams.blurSamples,
+          blurSpread: matParams.blurSpread,
+          blurAngle: matParams.blurAngle,
+          blurAnisotropy: matParams.blurAnisotropy,
+          blurGamma: matParams.blurGamma,
+          aberrationR: matParams.aberrationR,
+          aberrationB: matParams.aberrationB,
+          ao: matParams.ao,
+          aoRadius: matParams.aoRadius,
+          noiseScale: matParams.noiseScale,
+          noiseIntensity: matParams.noiseIntensity,
+          noiseRotation: matParams.noiseRotation,
+          noiseThreshold: matParams.noiseThreshold,
+          glassSupersampling: matParams.glassSupersampling,
+          edgeIorEnabled: matParams.edgeIorEnabled,
+          edgeIorRangeStart: matParams.edgeIorRangeStart,
+          edgeIorRangeEnd: matParams.edgeIorRangeEnd,
+          edgeIorStrength: matParams.edgeIorStrength,
+          edgeMask: buildEdgeMask(),
+        },
+      });
+    });
+    redrawCrossSection();
+    overlay.setLightFollowParams(buildLightFollowParams());
+    loggerInstance.log('profile:defaults', 'Reset to defaults');
+  });
+
   // Profile selector
   let profileBinding: any = null;
   const updateProfileList = () => {
@@ -1505,8 +1720,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           overlay.track(el, {
             surfaceShape: matParams.surfaceShape,
             bevelSize: matParams.bevelSize,
-            flipX: matParams.flipX,
-            flipY: matParams.flipY,
+            invertNormals: matParams.invertNormals,
+            invertCurve: matParams.invertCurve,
             material: {
               ior: matParams.ior,
               roughness: matParams.roughness,
@@ -1589,8 +1804,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       overlay.track(el, {
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,
@@ -1661,8 +1876,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       overlay.track(el, {
         surfaceShape: matParams.surfaceShape,
         bevelSize: matParams.bevelSize,
-        flipX: matParams.flipX,
-        flipY: matParams.flipY,
+        invertNormals: matParams.invertNormals,
+        invertCurve: matParams.invertCurve,
         material: {
           ior: matParams.ior,
           roughness: matParams.roughness,

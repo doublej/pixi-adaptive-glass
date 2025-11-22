@@ -88,14 +88,14 @@ export interface GlassItemConfig {
   bevelSize?: number;
 
   /**
-   * Flip the normal map on X axis. Defaults to false.
+   * Invert the normals (makes convex appear concave). Defaults to false.
    */
-  flipX?: boolean;
+  invertNormals?: boolean;
 
   /**
-   * Flip the normal map on Y axis. Defaults to false.
+   * Invert the shape curve direction. Defaults to false.
    */
-  flipY?: boolean;
+  invertCurve?: boolean;
 
   /**
    * Bezier curve control points for custom bevel shape [x1, y1, x2, y2].
@@ -332,8 +332,8 @@ export class GlassOverlay {
     const bevel = config.bevelSize ?? 12;
 
     const shape = config.surfaceShape ?? 'squircle';
-    const flipX = config.flipX ?? false;
-    const flipY = config.flipY ?? false;
+    const invertNormals = config.invertNormals ?? false;
+    const invertCurve = config.invertCurve ?? false;
     const bezierCurve = config.bezierCurve;
 
     // For circles, use square dimensions
@@ -342,7 +342,7 @@ export class GlassOverlay {
     const mapHeight = isCircle ? circleSize : rect.height;
 
     const normalMap =
-      config.normalMap || createRoundedRectNormalMap(mapWidth, mapHeight, radius, bevel, shape, flipX, flipY, bezierCurve);
+      config.normalMap || createRoundedRectNormalMap(mapWidth, mapHeight, radius, bevel, shape, invertNormals, invertCurve, bezierCurve);
 
     const panel = this.system.createPanel({
       material,
@@ -567,8 +567,8 @@ export class GlassOverlay {
     }
     const bevel = item.config.bevelSize ?? 12;
     const shape = item.config.surfaceShape ?? 'squircle';
-    const flipX = item.config.flipX ?? false;
-    const flipY = item.config.flipY ?? false;
+    const invertNormals = item.config.invertNormals ?? false;
+    const invertCurve = item.config.invertCurve ?? false;
     const bezierCurve = item.config.bezierCurve;
 
     // For circles, use square dimensions
@@ -578,7 +578,7 @@ export class GlassOverlay {
 
     // Regenerate normal map with new dimensions/radius
     const normalMap = createRoundedRectNormalMap(
-      mapWidth, mapHeight, radius, bevel, shape, flipX, flipY, bezierCurve
+      mapWidth, mapHeight, radius, bevel, shape, invertNormals, invertCurve, bezierCurve
     );
 
     // Update the panel's normal map
@@ -652,15 +652,21 @@ export function getHeightAndDerivative(
   }
   switch (shape) {
     case 'circle': {
-      return { height: heightCircle(t), derivative: heightCircleDerivative(t) };
+      // Reverse t so curve goes high→low like ramp
+      const s = 1 - t;
+      return { height: heightCircle(s), derivative: -heightCircleDerivative(s) };
     }
     case 'squircle': {
-      return { height: heightSquircle(t), derivative: heightSquircleDerivative(t) };
+      // Reverse t so curve goes high→low like ramp
+      const s = 1 - t;
+      return { height: heightSquircle(s), derivative: -heightSquircleDerivative(s) };
     }
     case 'concave': {
-      const h = heightSquircle(t);
-      const d = heightSquircleDerivative(t);
-      return { height: 1 - h, derivative: -d };
+      // Reverse t so curve goes low→high (opposite of convex)
+      const s = 1 - t;
+      const h = heightSquircle(s);
+      const d = heightSquircleDerivative(s);
+      return { height: 1 - h, derivative: d };
     }
     case 'lip': {
       const convexH = heightSquircle(t);
@@ -679,12 +685,6 @@ export function getHeightAndDerivative(
       const d = t > 0.001 ? -t / h : 0;
       return { height: h, derivative: d };
     }
-    case 'ridge': {
-      // Sharp peak - inverse of dome
-      const h = 1 - Math.sqrt(Math.max(0, 1 - t * t));
-      const d = t > 0.001 ? t / Math.sqrt(Math.max(0.001, 1 - t * t)) : 0;
-      return { height: h, derivative: d };
-    }
     case 'wave': {
       // Sinusoidal wave
       const h = (1 - Math.cos(t * Math.PI)) / 2;
@@ -695,6 +695,10 @@ export function getHeightAndDerivative(
       // No bevel, completely flat
       return { height: 0, derivative: 0 };
     }
+    case 'ramp': {
+      // Linear test pattern - height = t, derivative = 1
+      return { height: t, derivative: 1 };
+    }
   }
 }
 
@@ -704,8 +708,8 @@ function createRoundedRectNormalMap(
   radius: number,
   bevel: number,
   shape: SurfaceShape,
-  flipX: boolean = false,
-  flipY: boolean = false,
+  invertNormals: boolean = false,
+  invertCurve: boolean = false,
   bezierCurve?: [number, number, number, number],
 ): Texture {
   const w = Math.ceil(width);
@@ -788,12 +792,12 @@ function createRoundedRectNormalMap(
       // Apply bevel based on distance to boundary
       if (bevel > 0 && distToBoundary < bevel && distToBoundary >= 0) {
         let t = 1 - distToBoundary / bevel;
-        if (flipY) t = 1 - t;
+        if (invertCurve) t = 1 - t;
         const { derivative } = getHeightAndDerivative(t, shape, bezierCurve);
-        const sign = flipY ? -1 : 1;
+        const sign = invertCurve ? -1 : 1;
         nx = dirX * derivative * 0.5 * sign;
         ny = dirY * derivative * 0.5 * sign;
-        if (flipX) {
+        if (invertNormals) {
           nx = -nx;
           ny = -ny;
         }
