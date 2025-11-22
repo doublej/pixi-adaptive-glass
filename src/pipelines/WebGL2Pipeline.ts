@@ -15,6 +15,9 @@ import type { GlassPanel } from '../panels/GlassPanel.js';
 import {
   compositeFragment,
   fullscreenVertex,
+  jfaDistanceFragment,
+  jfaFloodFragment,
+  jfaSeedFragment,
   panelVertex,
   refractionFragment,
   revealageFragment,
@@ -30,6 +33,15 @@ const QUAD_GEOMETRY = new MeshGeometry({
   indices: new Uint32Array([0, 1, 2, 0, 2, 3]),
 });
 
+// Cache entry for JFA distance field per panel
+interface JFACache {
+  distanceField: RenderTexture;
+  normalMapId: number; // Track which normal map was used
+  normalMapUpdateId: number; // Track texture updates
+  width: number;
+  height: number;
+}
+
 export class WebGL2Pipeline implements Pipeline {
   readonly id = 'webgl2';
   private readonly rtManager: SceneRTManager;
@@ -43,6 +55,14 @@ export class WebGL2Pipeline implements Pipeline {
   private readonly compositeSprite: Sprite;
   private accumRT?: RenderTexture;
   private revealRT?: RenderTexture;
+
+  // JFA shaders and cache
+  private readonly jfaSeedShader: Shader;
+  private readonly jfaFloodShader: Shader;
+  private readonly jfaDistanceShader: Shader;
+  private jfaPingRT?: RenderTexture;
+  private jfaPongRT?: RenderTexture;
+  private readonly jfaCache: Map<GlassPanel, JFACache> = new Map();
 
   constructor(
     private readonly renderer: Renderer,
@@ -108,6 +128,7 @@ export class WebGL2Pipeline implements Pipeline {
         uSceneColor: Texture.WHITE.source,
         uNormalMap: Texture.WHITE.source,
         uCausticsMap: Texture.WHITE.source,
+        uDistanceField: Texture.WHITE.source,
         panelUniforms: refractUniforms,
       },
     });
@@ -147,6 +168,41 @@ export class WebGL2Pipeline implements Pipeline {
     this.compositeSprite.visible = true;
     this.compositeSprite.alpha = 1;
     this.compositeSprite.zIndex = 9999; // Force on top
+
+    // JFA shaders
+    const jfaSeedUniforms = new UniformGroup({
+      uTexelSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
+    });
+    this.jfaSeedShader = Shader.from({
+      gl: { vertex: fullscreenVertex, fragment: jfaSeedFragment },
+      resources: {
+        uNormalMap: Texture.WHITE.source,
+        jfaUniforms: jfaSeedUniforms,
+      },
+    });
+
+    const jfaFloodUniforms = new UniformGroup({
+      uTexelSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
+      uStepSize: { value: 1, type: 'f32' },
+    });
+    this.jfaFloodShader = Shader.from({
+      gl: { vertex: fullscreenVertex, fragment: jfaFloodFragment },
+      resources: {
+        uPrevPass: Texture.WHITE.source,
+        jfaUniforms: jfaFloodUniforms,
+      },
+    });
+
+    const jfaDistanceUniforms = new UniformGroup({
+      uMaxDistance: { value: 0.15, type: 'f32' },
+    });
+    this.jfaDistanceShader = Shader.from({
+      gl: { vertex: fullscreenVertex, fragment: jfaDistanceFragment },
+      resources: {
+        uSeedMap: Texture.WHITE.source,
+        jfaUniforms: jfaDistanceUniforms,
+      },
+    });
   }
 
   setup(): void {}
@@ -197,6 +253,113 @@ export class WebGL2Pipeline implements Pipeline {
     this.accumRT?.destroy(true);
     this.revealRT?.destroy(true);
     this.compositeRT?.destroy(true);
+    this.jfaPingRT?.destroy(true);
+    this.jfaPongRT?.destroy(true);
+    for (const cache of this.jfaCache.values()) {
+      cache.distanceField.destroy(true);
+    }
+    this.jfaCache.clear();
+  }
+
+  // Compute JFA distance field for a panel's normal map
+  private computeDistanceField(panel: GlassPanel): RenderTexture {
+    const normalMap = panel.normalMap ?? Texture.WHITE;
+    const width = normalMap.width;
+    const height = normalMap.height;
+    const normalMapId = (normalMap.source as any).uid ?? 0;
+    const normalMapUpdateId = (normalMap.source as any)._updateID ?? (normalMap.source as any).updateId ?? 0;
+
+    // Check cache - disabled for now as normal map updateId doesn't change on radius updates
+    // TODO: Add proper invalidation when panel properties change
+    const cached = this.jfaCache.get(panel);
+    // if (cached && cached.normalMapId === normalMapId && cached.normalMapUpdateId === normalMapUpdateId && cached.width === width && cached.height === height) {
+    //   return cached.distanceField;
+    // }
+
+    // Ensure ping-pong textures
+    if (!this.jfaPingRT || this.jfaPingRT.width !== width || this.jfaPingRT.height !== height) {
+      this.jfaPingRT?.destroy(true);
+      this.jfaPongRT?.destroy(true);
+      this.jfaPingRT = RenderTexture.create({ width, height, resolution: 1 });
+      this.jfaPongRT = RenderTexture.create({ width, height, resolution: 1 });
+    }
+
+    // Create or reuse distance field texture
+    let distanceField = cached?.distanceField;
+    if (!distanceField || distanceField.width !== width || distanceField.height !== height) {
+      distanceField?.destroy(true);
+      distanceField = RenderTexture.create({ width, height, resolution: 1 });
+    }
+
+    const texelSize = [1 / width, 1 / height];
+
+    // Step 1: Seed pass
+    const seedResources = (this.jfaSeedShader as any).resources;
+    seedResources.uNormalMap = normalMap.source;
+    const seedUniforms = seedResources.jfaUniforms?.uniforms;
+    if (seedUniforms) {
+      seedUniforms.uTexelSize[0] = texelSize[0];
+      seedUniforms.uTexelSize[1] = texelSize[1];
+    }
+
+    this.fullScreenQuad.shader = this.jfaSeedShader;
+    this.fullScreenQuad.width = 1;
+    this.fullScreenQuad.height = 1;
+    this.fullScreenQuad.updateLocalTransform();
+    this.fullScreenQuad.worldTransform.copyFrom(this.fullScreenQuad.localTransform);
+    this.renderer.render({ container: this.fullScreenQuad, target: this.jfaPingRT, clear: true });
+
+    // Step 2: Flood passes (log2 iterations)
+    const maxDim = Math.max(width, height);
+    const passes = Math.ceil(Math.log2(maxDim));
+    let readRT: RenderTexture = this.jfaPingRT!;
+    let writeRT: RenderTexture = this.jfaPongRT!;
+
+    const floodResources = (this.jfaFloodShader as any).resources;
+    const floodUniforms = floodResources.jfaUniforms?.uniforms;
+
+    for (let i = 0; i < passes; i++) {
+      const stepSize = Math.pow(2, passes - i - 1);
+
+      floodResources.uPrevPass = readRT.source;
+      if (floodUniforms) {
+        floodUniforms.uTexelSize[0] = texelSize[0];
+        floodUniforms.uTexelSize[1] = texelSize[1];
+        floodUniforms.uStepSize = stepSize;
+      }
+
+      this.fullScreenQuad.shader = this.jfaFloodShader;
+      this.renderer.render({ container: this.fullScreenQuad, target: writeRT, clear: true });
+
+      // Swap
+      const temp = readRT;
+      readRT = writeRT;
+      writeRT = temp;
+    }
+
+    // Step 3: Distance pass
+    const distResources = (this.jfaDistanceShader as any).resources;
+    distResources.uSeedMap = readRT.source;
+    const distUniforms = distResources.jfaUniforms?.uniforms;
+    if (distUniforms) {
+      distUniforms.uMaxDistance = 0.15; // Same as previous calculateEdgeMask
+    }
+
+    this.fullScreenQuad.shader = this.jfaDistanceShader;
+    this.renderer.render({ container: this.fullScreenQuad, target: distanceField, clear: true });
+
+    console.log('JFA computed:', width, 'x', height, 'passes:', passes);
+
+    // Cache result
+    this.jfaCache.set(panel, {
+      distanceField,
+      normalMapId,
+      normalMapUpdateId,
+      width,
+      height,
+    });
+
+    return distanceField;
   }
 
   private ensureAccumTargets(width: number, height: number): void {
@@ -241,11 +404,15 @@ export class WebGL2Pipeline implements Pipeline {
     const screenWidth = this.renderer.screen.width;
     const screenHeight = this.renderer.screen.height;
 
+    // Compute JFA distance field for this panel
+    const distanceField = this.computeDistanceField(panel);
+
     const resources = (this.refractShader as any).resources;
     if (resources) {
       resources.uSceneColor = sceneTarget.source;
       resources.uNormalMap = normal.source;
       resources.uCausticsMap = (panel.causticsAtlas ?? Texture.WHITE).source;
+      resources.uDistanceField = distanceField.source;
 
       // Update uniforms through UniformGroup in v8
       const uniforms = resources.panelUniforms?.uniforms;

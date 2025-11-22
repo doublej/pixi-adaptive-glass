@@ -10,6 +10,132 @@ void main(void){
 }
 `;
 
+// JFA Seed shader - identifies edge pixels from shape mask
+export const jfaSeedFragment = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uNormalMap;
+uniform vec2 uTexelSize;
+
+void main() {
+  float center = texture2D(uNormalMap, vUv).a;
+
+  // Check if this is an edge pixel (shape mask transitions)
+  bool isEdge = false;
+
+  // Sample 8 neighbors for better edge detection
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+      if (dx == 0 && dy == 0) continue;
+      vec2 offset = vec2(float(dx), float(dy)) * uTexelSize;
+      float neighbor = texture2D(uNormalMap, vUv + offset).a;
+
+      // Edge if center is inside shape but any neighbor is outside
+      if (center > 0.5 && neighbor < 0.5) {
+        isEdge = true;
+        break;
+      }
+    }
+    if (isEdge) break;
+  }
+
+  // Also check UV boundaries as edges
+  if (center > 0.5) {
+    if (vUv.x < uTexelSize.x || vUv.x > 1.0 - uTexelSize.x ||
+        vUv.y < uTexelSize.y || vUv.y > 1.0 - uTexelSize.y) {
+      isEdge = true;
+    }
+  }
+
+  if (isEdge) {
+    // Store own position as seed (normalized 0-1)
+    gl_FragColor = vec4(vUv, 0.0, 1.0);
+  } else if (center > 0.5) {
+    // Inside shape but not edge - mark as needing distance calc
+    gl_FragColor = vec4(-1.0, -1.0, 0.0, 1.0);
+  } else {
+    // Outside shape
+    gl_FragColor = vec4(-1.0, -1.0, 0.0, 0.0);
+  }
+}
+`;
+
+// JFA Flood shader - propagates nearest seed positions
+export const jfaFloodFragment = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uPrevPass;
+uniform vec2 uTexelSize;
+uniform float uStepSize;
+
+void main() {
+  vec4 bestSeed = texture2D(uPrevPass, vUv);
+  float bestDist = 999999.0;
+
+  // Calculate distance to current best seed
+  if (bestSeed.x >= 0.0) {
+    vec2 diff = vUv - bestSeed.xy;
+    bestDist = dot(diff, diff);
+  }
+
+  // Check 8 neighbors at current step size
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+      if (dx == 0 && dy == 0) continue;
+
+      vec2 neighborUV = vUv + vec2(float(dx), float(dy)) * uStepSize * uTexelSize;
+
+      // Bounds check
+      if (neighborUV.x < 0.0 || neighborUV.x > 1.0 || neighborUV.y < 0.0 || neighborUV.y > 1.0) {
+        continue;
+      }
+
+      vec4 neighborSeed = texture2D(uPrevPass, neighborUV);
+
+      // If neighbor has a valid seed
+      if (neighborSeed.x >= 0.0) {
+        vec2 diff = vUv - neighborSeed.xy;
+        float dist = dot(diff, diff);
+
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestSeed = neighborSeed;
+        }
+      }
+    }
+  }
+
+  gl_FragColor = bestSeed;
+}
+`;
+
+// JFA Distance shader - converts seed positions to actual distances
+export const jfaDistanceFragment = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uSeedMap;
+uniform float uMaxDistance;
+
+void main() {
+  vec4 seed = texture2D(uSeedMap, vUv);
+
+  if (seed.x < 0.0) {
+    // No seed found (outside shape or error)
+    gl_FragColor = vec4(0.0, 0.0, 0.0, seed.a);
+    return;
+  }
+
+  // Calculate actual distance
+  vec2 diff = vUv - seed.xy;
+  float dist = length(diff);
+
+  // Normalize to 0-1 range based on max distance
+  float normalizedDist = clamp(dist / uMaxDistance, 0.0, 1.0);
+
+  gl_FragColor = vec4(normalizedDist, normalizedDist, normalizedDist, seed.a);
+}
+`;
+
 export const panelVertex = `
 precision mediump float;
 attribute vec2 aPosition;
@@ -32,6 +158,7 @@ varying vec2 vUv;
 uniform sampler2D uSceneColor;
 uniform sampler2D uNormalMap;
 uniform sampler2D uCausticsMap;
+uniform sampler2D uDistanceField;
 uniform vec2 uInvResolution;
 uniform float uIOR;
 uniform float uThickness;
@@ -231,8 +358,8 @@ void main(){
     discard;
   }
 
-  // Calculate edge distance (0 at edges, 1 at center)
-  float edgeDist = calculateEdgeMask(vUv, uNormalMap);
+  // Get edge distance from pre-computed JFA distance field (0 at edges, 1 at center)
+  float edgeDist = texture2D(uDistanceField, vUv).r;
 
   // Optionally blur the edge distance
   if (uEdgeMaskBlur > 0.0) {
@@ -242,7 +369,7 @@ void main(){
     for (int x = -2; x <= 2; x++) {
       for (int y = -2; y <= 2; y++) {
         vec2 offset = vec2(float(x), float(y)) * blurSize;
-        float sampleDist = calculateEdgeMask(vUv + offset, uNormalMap);
+        float sampleDist = texture2D(uDistanceField, vUv + offset).r;
         float weight = 1.0 - length(vec2(float(x), float(y))) * 0.2;
         blurredDist += sampleDist * weight;
         blurWeight += weight;

@@ -15,10 +15,17 @@ export declare class WebGL2Pipeline implements Pipeline {
     private readonly compositeSprite;
     private accumRT?;
     private revealRT?;
+    private readonly jfaSeedShader;
+    private readonly jfaFloodShader;
+    private readonly jfaDistanceShader;
+    private jfaPingRT?;
+    private jfaPongRT?;
+    private readonly jfaCache;
     constructor(renderer: Renderer, useDepth: boolean);
     setup(): void;
     render(context: PipelineContext): void;
     dispose(): void;
+    private computeDistanceField;
     private ensureAccumTargets;
     private clearTarget;
     private renderPanel;
