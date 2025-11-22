@@ -1,0 +1,244 @@
+{
+  "folders": {
+    "glass": {
+      "title": "Glass Material",
+      "expanded": true,
+      "children": {
+        "refraction": {
+          "title": "Refraction",
+          "expanded": true,
+          "bindings": [
+            { "key": "glass.ior", "label": "IOR", "min": 1.0, "max": 2.0, "step": 0.01 },
+            { "key": "glass.thickness", "label": "Thickness", "min": 0, "max": 10, "step": 0.1 },
+            { "key": "glass.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "dispersion": {
+          "title": "Dispersion",
+          "expanded": false,
+          "bindings": [
+            { "key": "glass.enableDispersion", "label": "Enable", "type": "boolean" },
+            { "key": "glass.dispersion", "label": "Amount", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "glass.aberrationR", "label": "Red Shift", "min": 0.5, "max": 1.5, "step": 0.01 },
+            { "key": "glass.aberrationB", "label": "Blue Shift", "min": 0.5, "max": 1.5, "step": 0.01 }
+          ]
+        },
+        "blur": {
+          "title": "Frosted Glass",
+          "expanded": false,
+          "bindings": [
+            { "key": "glass.roughness", "label": "Roughness", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "glass.blurSamples", "label": "Samples", "min": 3, "max": 32, "step": 1 },
+            { "key": "glass.blurSpread", "label": "Spread", "min": 0, "max": 20, "step": 0.1 },
+            { "key": "glass.blurAngle", "label": "Angle", "min": 0, "max": 360, "step": 1 },
+            { "key": "glass.blurAnisotropy", "label": "Anisotropy", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "glass.blurGamma", "label": "Falloff", "min": 0.5, "max": 3, "step": 0.1 }
+          ]
+        },
+        "tint": {
+          "title": "Tint",
+          "expanded": false,
+          "bindings": [
+            { "key": "glass.tint", "label": "Color", "type": "color" }
+          ]
+        }
+      }
+    },
+    "lighting": {
+      "title": "Lighting",
+      "expanded": false,
+      "children": {
+        "specular": {
+          "title": "Specular",
+          "expanded": true,
+          "bindings": [
+            { "key": "lighting.specular", "label": "Intensity", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "lighting.shininess", "label": "Shininess", "min": 1, "max": 256, "step": 1 },
+            { "key": "lighting.shadow", "label": "Shadow", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "ambient": {
+          "title": "Ambient Occlusion",
+          "expanded": false,
+          "bindings": [
+            { "key": "lighting.ao", "label": "Intensity", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "lighting.aoRadius", "label": "Radius", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "direction": {
+          "title": "Light Direction",
+          "expanded": false,
+          "bindings": [
+            { "key": "lighting.dirX", "label": "X", "min": -1, "max": 1, "step": 0.01 },
+            { "key": "lighting.dirY", "label": "Y", "min": -1, "max": 1, "step": 0.01 },
+            { "key": "lighting.dirZ", "label": "Z", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "cursor": {
+          "title": "Cursor Follow",
+          "expanded": false,
+          "bindings": [
+            { "key": "lighting.followCursor", "label": "Enable", "type": "boolean" },
+            { "key": "lighting.smoothing", "label": "Smoothing", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "lighting.delay", "label": "Delay", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "lighting.curve", "label": "Z Curve", "min": 0.5, "max": 3, "step": 0.1 },
+            { "key": "lighting.zMin", "label": "Z Min", "min": 0, "max": 0.5, "step": 0.01 },
+            { "key": "lighting.zMax", "label": "Z Max", "min": 0, "max": 0.5, "step": 0.01 },
+            { "key": "lighting.edgeStretch", "label": "Edge Stretch", "min": 0.1, "max": 2, "step": 0.1 }
+          ]
+        }
+      }
+    },
+    "noise": {
+      "title": "Noise Distortion",
+      "expanded": false,
+      "bindings": [
+        { "key": "noise.intensity", "label": "Intensity", "min": 0, "max": 1, "step": 0.01 },
+        { "key": "noise.scale", "label": "Scale", "min": 1, "max": 100, "step": 1 },
+        { "key": "noise.rotation", "label": "Rotation", "min": 0, "max": 360, "step": 1 },
+        { "key": "noise.threshold", "label": "Threshold", "min": 0, "max": 1, "step": 0.01 }
+      ]
+    },
+    "surface": {
+      "title": "Surface Shape",
+      "expanded": false,
+      "bindings": [
+        {
+          "key": "surface.shape",
+          "label": "Shape",
+          "type": "list",
+          "options": [
+            { "text": "Circle", "value": "circle" },
+            { "text": "Squircle", "value": "squircle" },
+            { "text": "Concave", "value": "concave" },
+            { "text": "Lip", "value": "lip" },
+            { "text": "Dome", "value": "dome" },
+            { "text": "Wave", "value": "wave" },
+            { "text": "Flat", "value": "flat" },
+            { "text": "Ramp", "value": "ramp" }
+          ]
+        },
+        { "key": "surface.cornerRadius", "label": "Corner Radius", "min": 0, "max": 200, "step": 1 },
+        { "key": "surface.bevelSize", "label": "Bevel Size", "min": 0, "max": 100, "step": 1 },
+        { "key": "surface.invertNormals", "label": "Invert Normals", "type": "boolean" },
+        { "key": "surface.isCircle", "label": "Circle Mode", "type": "boolean" },
+        { "key": "surface.useDisplacementMap", "label": "Use Displacement Map", "type": "boolean" }
+      ]
+    },
+    "edgeMask": {
+      "title": "Edge Mask",
+      "expanded": false,
+      "children": {
+        "base": {
+          "title": "Base Settings",
+          "expanded": true,
+          "bindings": [
+            { "key": "edgeMask.cutoff", "label": "Cutoff", "min": 0, "max": 0.1, "step": 0.001 },
+            { "key": "edgeMask.blur", "label": "Blur", "min": 0, "max": 5, "step": 0.1 },
+            { "key": "edgeMask.invert", "label": "Invert", "type": "boolean" },
+            {
+              "key": "edgeMask.debugMode",
+              "label": "Debug",
+              "type": "list",
+              "options": [
+                { "text": "Off", "value": 0 },
+                { "text": "Edge Distance", "value": 1 },
+                { "text": "Shape Mask", "value": 2 },
+                { "text": "Normals", "value": 3 }
+              ]
+            }
+          ]
+        },
+        "edgeIor": {
+          "title": "Edge IOR",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.iorEnabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.iorRangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.iorRangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.iorStrength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "smoothing": {
+          "title": "Smoothing",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.smoothing.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.smoothing.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.smoothing.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.smoothing.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.smoothing.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "contrast": {
+          "title": "Contrast",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.contrast.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.contrast.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.contrast.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.contrast.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.contrast.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "alpha": {
+          "title": "Alpha",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.alpha.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.alpha.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.alpha.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.alpha.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.alpha.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "tint": {
+          "title": "Tint",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.tint.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.tint.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.tint.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.tint.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.tint.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "darken": {
+          "title": "Darken",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.darken.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.darken.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.darken.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.darken.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.darken.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        },
+        "desaturate": {
+          "title": "Desaturate",
+          "expanded": false,
+          "bindings": [
+            { "key": "edgeMask.desaturate.enabled", "label": "Enable", "type": "boolean" },
+            { "key": "edgeMask.desaturate.rangeStart", "label": "Range Start", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.desaturate.rangeEnd", "label": "Range End", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.desaturate.strength", "label": "Strength", "min": 0, "max": 1, "step": 0.01 },
+            { "key": "edgeMask.desaturate.opacity", "label": "Opacity", "min": 0, "max": 1, "step": 0.01 }
+          ]
+        }
+      }
+    },
+    "quality": {
+      "title": "Quality",
+      "expanded": false,
+      "bindings": [
+        { "key": "quality.renderScale", "label": "Render Scale", "min": 0.5, "max": 1, "step": 0.05 },
+        { "key": "quality.enableDispersion", "label": "Dispersion", "type": "boolean" },
+        { "key": "quality.enableCaustics", "label": "Caustics", "type": "boolean" },
+        { "key": "quality.enableContactShadows", "label": "Contact Shadows", "type": "boolean" },
+        { "key": "quality.maxBlurTaps", "label": "Max Blur Taps", "min": 4, "max": 32, "step": 1 },
+        { "key": "quality.edgeSupersampling", "label": "Edge MSAA", "min": 1, "max": 4, "step": 1 },
+        { "key": "quality.glassSupersampling", "label": "Glass MSAA", "min": 1, "max": 4, "step": 1 }
+      ]
+    }
+  }
+}

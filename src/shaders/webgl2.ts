@@ -354,8 +354,8 @@ void main(){
   vec4 normalSample = texture2D(uNormalMap, vUv);
   float shapeMask = normalSample.a;
 
-  // Discard pixels outside the shape (border radius)
-  if (shapeMask < 0.5) {
+  // Discard pixels outside the shape (border radius) - skip when in debug mode
+  if (shapeMask < 0.5 && uDebugMode < 0.5) {
     discard;
   }
 

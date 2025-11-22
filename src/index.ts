@@ -9,3 +9,4 @@ export * from './system/GlassSystem.js';
 export * from './hud/GlassHUD.js';
 export * from './GlassOverlay.js';
 export * from './utils/index.js';
+export * from './geometry/normal-map.js';

@@ -1,6 +1,6 @@
 import { MeshGeometry, Texture } from 'pixi.js';
-import { getHeightAndDerivative } from '../GlassOverlay.js';
 import type { SurfaceShape } from '../core/types.js';
+import { distanceToT, getHeightAndDerivative } from '../geometry/height-functions.js';
 
 /**
  * Creates a pill/stadium geometry that can expand from circle to pill shape.
@@ -137,7 +137,6 @@ export function createPillNormalMap(
   bevel: number,
   shape: SurfaceShape,
   invertNormals: boolean = false,
-  invertCurve: boolean = false,
 ): Texture {
   const w = Math.ceil(width);
   const h = Math.ceil(height);
@@ -194,12 +193,10 @@ export function createPillNormalMap(
 
       // Apply bevel based on distance to boundary
       if (bevel > 0 && distToBoundary < bevel && distToBoundary >= 0) {
-        let t = 1 - distToBoundary / bevel;
-        if (invertCurve) t = 1 - t;
+        const t = distanceToT(distToBoundary, bevel);
         const { derivative } = getHeightAndDerivative(t, shape);
-        const sign = invertCurve ? -1 : 1;
-        nx = dirX * derivative * 0.5 * sign;
-        ny = dirY * derivative * 0.5 * sign;
+        nx = dirX * derivative * 0.5;
+        ny = dirY * derivative * 0.5;
         if (invertNormals) {
           nx = -nx;
           ny = -ny;

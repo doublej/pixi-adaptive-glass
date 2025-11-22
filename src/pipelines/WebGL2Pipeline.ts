@@ -270,12 +270,11 @@ export class WebGL2Pipeline implements Pipeline {
     const normalMapId = (normalMap.source as any).uid ?? 0;
     const normalMapUpdateId = (normalMap.source as any)._updateID ?? (normalMap.source as any).updateId ?? 0;
 
-    // Check cache - disabled for now as normal map updateId doesn't change on radius updates
-    // TODO: Add proper invalidation when panel properties change
+    // Check cache
     const cached = this.jfaCache.get(panel);
-    // if (cached && cached.normalMapId === normalMapId && cached.normalMapUpdateId === normalMapUpdateId && cached.width === width && cached.height === height) {
-    //   return cached.distanceField;
-    // }
+    if (cached && cached.normalMapId === normalMapId && cached.normalMapUpdateId === normalMapUpdateId && cached.width === width && cached.height === height) {
+      return cached.distanceField;
+    }
 
     // Ensure ping-pong textures
     if (!this.jfaPingRT || this.jfaPingRT.width !== width || this.jfaPingRT.height !== height) {
@@ -349,7 +348,6 @@ export class WebGL2Pipeline implements Pipeline {
     this.fullScreenQuad.shader = this.jfaDistanceShader;
     this.renderer.render({ container: this.fullScreenQuad, target: distanceField, clear: true });
 
-    console.log('JFA computed:', width, 'x', height, 'passes:', passes);
 
     // Cache result
     this.jfaCache.set(panel, {
@@ -444,8 +442,8 @@ export class WebGL2Pipeline implements Pipeline {
         uniforms.uShininess = panel.glassMaterial.shininess ?? 32;
         uniforms.uShadow = panel.glassMaterial.shadow ?? 0;
         const lightDir = panel.glassMaterial.lightDir ?? [0.5, 0.5, 1];
-        uniforms.uLightDir[0] = lightDir[0];
-        uniforms.uLightDir[1] = lightDir[1];
+        uniforms.uLightDir[0] = -lightDir[0];
+        uniforms.uLightDir[1] = -lightDir[1];
         uniforms.uLightDir[2] = lightDir[2];
         uniforms.uBlurSamples = panel.glassMaterial.blurSamples ?? 8;
         uniforms.uBlurSpread = panel.glassMaterial.blurSpread ?? 4;
