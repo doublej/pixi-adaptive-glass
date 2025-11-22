@@ -18,4 +18,4 @@ export declare function updatePillGeometry(geometry: MeshGeometry, radius: numbe
  * Creates a normal map for a pill/stadium shape with bevel effects.
  * The pill is a rectangle with semicircular caps on each end.
  */
-export declare function createPillNormalMap(width: number, height: number, expansion: number, bevel: number, shape: SurfaceShape, invertNormals?: boolean, invertCurve?: boolean): Texture;
+export declare function createPillNormalMap(width: number, height: number, expansion: number, bevel: number, shape: SurfaceShape, invertNormals?: boolean): Texture;

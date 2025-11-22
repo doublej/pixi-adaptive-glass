@@ -1,6 +1,6 @@
 {
   "name": "pixi-adaptive-glass",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "An adaptive glass effect plugin for PixiJS applications.",
   "type": "module",
   "main": "./dist/pixi-adaptive-glass.umd.js",
@@ -20,7 +20,8 @@
     "lint": "biome check src",
     "test": "vitest run",
     "dev": "vite --config demo/vite.config.ts",
-    "deploy": "sh deploy.sh"
+    "deploy": "sh deploy.sh",
+    "build:ss": "npm run build && rm -rf /Users/jurrejan/Documents/clients/poolsuite/silentsongs/silentsongs-experience/node_modules/pixi-adaptive-glass/dist && cp -r dist /Users/jurrejan/Documents/clients/poolsuite/silentsongs/silentsongs-experience/node_modules/pixi-adaptive-glass/dist"
   },
   "files": [
     "dist"
