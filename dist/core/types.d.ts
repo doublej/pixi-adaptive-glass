@@ -1,6 +1,25 @@
 import type { Filter, MeshGeometry, Texture } from 'pixi.js';
 export type CapabilityTier = 'webgl2' | 'webgl1';
 export type SurfaceShape = 'circle' | 'squircle' | 'concave' | 'lip' | 'dome' | 'ridge' | 'wave' | 'flat';
+export interface EdgeTactic {
+    enabled: boolean;
+    rangeStart: number;
+    rangeEnd: number;
+    strength: number;
+    opacity: number;
+}
+export interface EdgeMaskConfig {
+    cutoff: number;
+    blur: number;
+    invert: boolean;
+    debugMode?: number;
+    smoothing: EdgeTactic;
+    contrast: EdgeTactic;
+    alpha: EdgeTactic;
+    tint: EdgeTactic;
+    darken: EdgeTactic;
+    desaturate: EdgeTactic;
+}
 export interface RenderQualityOptions {
     renderScale: number;
     enableDispersion: boolean;
@@ -43,6 +62,7 @@ export interface GlassMaterial {
     enableTintOpacity?: boolean;
     edgeBlur?: number;
     glassSupersampling?: number;
+    edgeMask?: EdgeMaskConfig;
 }
 export interface GlassPanelProps {
     id?: string;

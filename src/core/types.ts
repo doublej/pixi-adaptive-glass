@@ -4,6 +4,32 @@ export type CapabilityTier = 'webgl2' | 'webgl1';
 
 export type SurfaceShape = 'circle' | 'squircle' | 'concave' | 'lip' | 'dome' | 'ridge' | 'wave' | 'flat';
 
+// Individual edge tactic configuration
+export interface EdgeTactic {
+  enabled: boolean;
+  rangeStart: number; // 0 - 1, where effect begins (0 = edge, 1 = center)
+  rangeEnd: number;   // 0 - 1, where effect ends
+  strength: number;   // 0 - 1, effect intensity
+  opacity: number;    // 0 - 1, blending amount
+}
+
+// Complete edge mask configuration
+export interface EdgeMaskConfig {
+  // Base mask settings
+  cutoff: number;        // 0 - 0.1, discard threshold
+  blur: number;          // 0 - 5, mask blur radius
+  invert: boolean;       // flip black/white
+  debugMode?: number;    // 0=off, 1=edgeDist, 2=shapeMask, 3=normals
+
+  // Individual tactics
+  smoothing: EdgeTactic;    // softens edge transition
+  contrast: EdgeTactic;     // reduces contrast at edges
+  alpha: EdgeTactic;        // fades alpha at edges
+  tint: EdgeTactic;         // applies tint opacity
+  darken: EdgeTactic;       // darkens edges (vignette-like)
+  desaturate: EdgeTactic;   // reduces saturation at edges
+}
+
 export interface RenderQualityOptions {
   renderScale: number; // 0.5 - 1.0 downscale factor
   enableDispersion: boolean;
@@ -38,18 +64,19 @@ export interface GlassMaterial {
   noiseIntensity?: number; // 0 - 1, strength of distortion
   noiseRotation?: number; // 0 - 360, rotation of noise pattern in degrees
   noiseThreshold?: number; // 0 - 1, cutoff threshold for noise
-  // Edge optimization
-  edgeSmoothWidth?: number; // 0 - 1, width of edge smoothing
-  edgeContrast?: number; // 0 - 1, minimum contrast at edges
-  edgeAlphaFalloff?: number; // 0 - 1, alpha falloff at edges
-  edgeMaskCutoff?: number; // 0 - 0.1, mask discard threshold
-  // Edge toggles
+  // Legacy edge (deprecated - use edgeMask instead)
+  edgeSmoothWidth?: number;
+  edgeContrast?: number;
+  edgeAlphaFalloff?: number;
+  edgeMaskCutoff?: number;
   enableEdgeSmoothing?: boolean;
   enableContrastReduction?: boolean;
   enableAlphaFalloff?: boolean;
   enableTintOpacity?: boolean;
-  edgeBlur?: number; // 0 - 5, blur radius for edge mask
-  glassSupersampling?: number; // 1 - 4, full panel supersampling
+  edgeBlur?: number;
+  glassSupersampling?: number;
+  // New modular edge mask system
+  edgeMask?: EdgeMaskConfig;
 }
 
 export interface GlassPanelProps {

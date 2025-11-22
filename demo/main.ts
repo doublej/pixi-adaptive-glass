@@ -1,6 +1,6 @@
-import { Application, Assets, Container, Sprite, Texture } from 'pixi.js';
-import { GlassOverlay, GlassPresets, getHeightAndDerivative } from '../src/index.js';
-import type { RenderQualityOptions, SurfaceShape } from '../src/core/types.js';
+import { Application, Assets, Container, Sprite, Texture, MeshGeometry } from 'pixi.js';
+import { GlassOverlay, GlassPresets, getHeightAndDerivative, createPillGeometry, updatePillGeometry, createPillNormalMap, GlassPanel, createDefaultEdgeMask } from '../src/index.js';
+import type { RenderQualityOptions, SurfaceShape, EdgeMaskConfig, EdgeTactic } from '../src/core/types.js';
 import { Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
 import { createDebugLogger } from './debugLogger';
@@ -457,16 +457,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     }
@@ -557,17 +549,183 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     // Corners
     cornerRadius: 20,
     useHtmlRadius: false,
-    // Edges
-    edgeSmoothWidth: 0.15,
-    edgeContrast: 0.7,
-    edgeAlphaFalloff: 1,
-    edgeMaskCutoff: 0.001,
-    enableEdgeSmoothing: true,
-    enableContrastReduction: true,
-    enableAlphaFalloff: true,
-    enableTintOpacity: true,
-    edgeBlur: 1,
+    // Glass supersampling
     glassSupersampling: 1,
+    // Edge Mask System
+    edgeMaskCutoff: 0.001,
+    edgeMaskBlur: 1,
+    edgeMaskInvert: false,
+    debugMode: 0,
+    // Smoothing tactic
+    smoothingEnabled: false,
+    smoothingRangeStart: 0,
+    smoothingRangeEnd: 0.3,
+    smoothingStrength: 1,
+    smoothingOpacity: 1,
+    // Contrast tactic
+    contrastEnabled: false,
+    contrastRangeStart: 0,
+    contrastRangeEnd: 0.3,
+    contrastStrength: 0.7,
+    contrastOpacity: 1,
+    // Alpha tactic
+    alphaEnabled: false,
+    alphaRangeStart: 0,
+    alphaRangeEnd: 0.2,
+    alphaStrength: 1,
+    alphaOpacity: 1,
+    // Tint tactic
+    tintEnabled: false,
+    tintRangeStart: 0,
+    tintRangeEnd: 0.5,
+    tintStrength: 0.5,
+    tintOpacity: 1,
+    // Darken tactic
+    darkenEnabled: false,
+    darkenRangeStart: 0,
+    darkenRangeEnd: 0.3,
+    darkenStrength: 0.3,
+    darkenOpacity: 1,
+    // Desaturate tactic
+    desaturateEnabled: false,
+    desaturateRangeStart: 0,
+    desaturateRangeEnd: 0.4,
+    desaturateStrength: 0.5,
+    desaturateOpacity: 1,
+    // Cursor follow light
+    followCursor: false,
+    followDelay: 0.5,
+    followSmoothing: 0.9,
+    followCurve: 1.5,
+    followZMin: 0.05,
+    followZMax: 0.20,
+    followEdgeStretch: 0.5,
+  };
+
+  // Helper to build EdgeMaskConfig from matParams
+  const buildEdgeMask = (): EdgeMaskConfig => ({
+    cutoff: matParams.edgeMaskCutoff,
+    blur: matParams.edgeMaskBlur,
+    invert: matParams.edgeMaskInvert,
+    debugMode: matParams.debugMode,
+    smoothing: {
+      enabled: matParams.smoothingEnabled,
+      rangeStart: matParams.smoothingRangeStart,
+      rangeEnd: matParams.smoothingRangeEnd,
+      strength: matParams.smoothingStrength,
+      opacity: matParams.smoothingOpacity,
+    },
+    contrast: {
+      enabled: matParams.contrastEnabled,
+      rangeStart: matParams.contrastRangeStart,
+      rangeEnd: matParams.contrastRangeEnd,
+      strength: matParams.contrastStrength,
+      opacity: matParams.contrastOpacity,
+    },
+    alpha: {
+      enabled: matParams.alphaEnabled,
+      rangeStart: matParams.alphaRangeStart,
+      rangeEnd: matParams.alphaRangeEnd,
+      strength: matParams.alphaStrength,
+      opacity: matParams.alphaOpacity,
+    },
+    tint: {
+      enabled: matParams.tintEnabled,
+      rangeStart: matParams.tintRangeStart,
+      rangeEnd: matParams.tintRangeEnd,
+      strength: matParams.tintStrength,
+      opacity: matParams.tintOpacity,
+    },
+    darken: {
+      enabled: matParams.darkenEnabled,
+      rangeStart: matParams.darkenRangeStart,
+      rangeEnd: matParams.darkenRangeEnd,
+      strength: matParams.darkenStrength,
+      opacity: matParams.darkenOpacity,
+    },
+    desaturate: {
+      enabled: matParams.desaturateEnabled,
+      rangeStart: matParams.desaturateRangeStart,
+      rangeEnd: matParams.desaturateRangeEnd,
+      strength: matParams.desaturateStrength,
+      opacity: matParams.desaturateOpacity,
+    },
+  });
+
+  // Pill panel state
+  let pillPanel: GlassPanel | null = null;
+  const pillParams = {
+    enabled: false,
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+    radius: 50,
+    expansion: 0,
+    segments: 128,
+  };
+
+  const createOrUpdatePill = () => {
+    if (!pillParams.enabled) {
+      if (pillPanel) {
+        system.removePanel(pillPanel);
+        pillPanel = null;
+      }
+      return;
+    }
+
+    const totalWidth = pillParams.radius * 2 + pillParams.expansion;
+    const totalHeight = pillParams.radius * 2;
+
+    // Always recreate panel to get proper normal map
+    if (pillPanel) {
+      system.removePanel(pillPanel);
+      pillPanel = null;
+    }
+
+    // Create geometry and normal map
+    const geometry = createPillGeometry(pillParams.radius, pillParams.expansion, pillParams.segments);
+    const normalMap = createPillNormalMap(
+      totalWidth,
+      totalHeight,
+      pillParams.expansion,
+      matParams.bevelSize,
+      matParams.surfaceShape,
+      matParams.flipX,
+      matParams.flipY,
+    );
+
+    pillPanel = system.createPanel({
+      geometry,
+      material: {
+        ior: matParams.ior,
+        roughness: matParams.roughness,
+        dispersion: matParams.dispersion,
+        thickness: matParams.thickness,
+        opacity: matParams.opacity,
+        tint: parseInt(matParams.tint.replace('#', ''), 16),
+        specular: matParams.specular,
+        shininess: matParams.shininess,
+        shadow: matParams.shadow,
+        lightDir: [matParams.lightX, matParams.lightY, matParams.lightZ] as [number, number, number],
+        blurSamples: matParams.blurSamples,
+        blurSpread: matParams.blurSpread,
+        blurAngle: matParams.blurAngle,
+        blurAnisotropy: matParams.blurAnisotropy,
+        blurGamma: matParams.blurGamma,
+        aberrationR: matParams.aberrationR,
+        aberrationB: matParams.aberrationB,
+        ao: matParams.ao,
+        aoRadius: matParams.aoRadius,
+        noiseScale: matParams.noiseScale,
+        noiseIntensity: matParams.noiseIntensity,
+        noiseRotation: matParams.noiseRotation,
+        noiseThreshold: matParams.noiseThreshold,
+        glassSupersampling: matParams.glassSupersampling,
+        edgeMask: buildEdgeMask(),
+      },
+      normalMap,
+    });
+    pillPanel.position.set(pillParams.x, pillParams.y);
+    pillPanel.scale.set(totalWidth, totalHeight);
   };
 
   const applyToAll = (partial: any) => {
@@ -713,64 +871,64 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
   });
 
   // Cursor-follow light using GlassOverlay's setLightFollowParams
-  const lightFollowParams = {
-    followCursor: false,
-    delay: 0.5,
-    smoothing: 0.9,
-    curve: 1.5,
-    zMin: 0.05,
-    zMax: 0.20,
-    edgeStretch: 0.5,
-  };
+  const buildLightFollowParams = () => ({
+    followCursor: matParams.followCursor,
+    delay: matParams.followDelay,
+    smoothing: matParams.followSmoothing,
+    curve: matParams.followCurve,
+    zMin: matParams.followZMin,
+    zMax: matParams.followZMax,
+    edgeStretch: matParams.followEdgeStretch,
+  });
 
   const cursorFolder = lightingTab.addFolder({ title: 'Cursor Follow', expanded: true });
 
-  cursorFolder.addBinding(lightFollowParams, 'followCursor', {
+  cursorFolder.addBinding(matParams, 'followCursor', {
     label: 'enabled',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'delay', {
+  cursorFolder.addBinding(matParams, 'followDelay', {
     min: 0, max: 1, step: 0.01,
     label: 'delay',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'smoothing', {
+  cursorFolder.addBinding(matParams, 'followSmoothing', {
     min: 0, max: 1, step: 0.01,
     label: 'smoothing',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'edgeStretch', {
+  cursorFolder.addBinding(matParams, 'followEdgeStretch', {
     min: 0.1, max: 2, step: 0.01,
     label: 'edge stretch',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'curve', {
+  cursorFolder.addBinding(matParams, 'followCurve', {
     min: 0.5, max: 3, step: 0.1,
     label: 'z curve',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'zMin', {
+  cursorFolder.addBinding(matParams, 'followZMin', {
     min: 0, max: 0.5, step: 0.01,
     label: 'z min',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
-  cursorFolder.addBinding(lightFollowParams, 'zMax', {
+  cursorFolder.addBinding(matParams, 'followZMax', {
     min: 0.05, max: 0.5, step: 0.01,
     label: 'z max',
   }).on('change', () => {
-    overlay.setLightFollowParams(lightFollowParams);
+    overlay.setLightFollowParams(buildLightFollowParams());
   });
 
   lightingTab.addBinding(matParams, 'lightX', {
@@ -881,16 +1039,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     });
@@ -934,83 +1084,101 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     });
   });
 
-  // Edges folder
-  const edgesFolder = surfaceTab.addFolder({ title: 'Edges', expanded: false });
+  // Edge Mask System folder
+  const edgeMaskFolder = surfaceTab.addFolder({ title: 'Edge Mask', expanded: false });
 
-  edgesFolder.addBinding(matParams, 'glassSupersampling', {
+  // Helper to apply edge mask updates
+  const applyEdgeMask = () => {
+    applyToAll({ edgeMask: buildEdgeMask() });
+  };
+
+  // Add debug view to debug folder (now that matParams is defined)
+  debugFolder.addBinding(matParams, 'debugMode', {
+    label: 'debug view',
+    options: {
+      'Off': 0,
+      'Edge Distance': 1,
+      'Shape Mask': 2,
+      'Normals': 3,
+    },
+  }).on('change', applyEdgeMask);
+
+  // Base mask settings
+  edgeMaskFolder.addBinding(matParams, 'glassSupersampling', {
     min: 1, max: 4, step: 1,
     label: 'supersampling',
   }).on('change', (ev: any) => {
     applyToAll({ glassSupersampling: ev.value });
   });
 
-  edgesFolder.addBinding(matParams, 'edgeBlur', {
+  edgeMaskFolder.addBinding(matParams, 'edgeMaskBlur', {
     min: 0, max: 5, step: 0.1,
-    label: 'edge blur',
-  }).on('change', (ev: any) => {
-    applyToAll({ edgeBlur: ev.value });
-  });
+    label: 'mask blur',
+  }).on('change', applyEdgeMask);
 
-  edgesFolder.addBinding(matParams, 'edgeSmoothWidth', {
-    min: 0, max: 1, step: 0.01,
-    label: 'smooth width',
-  }).on('change', (ev: any) => {
-    applyToAll({ edgeSmoothWidth: ev.value });
-  });
-
-  edgesFolder.addBinding(matParams, 'edgeContrast', {
-    min: 0, max: 1, step: 0.01,
-    label: 'edge contrast',
-  }).on('change', (ev: any) => {
-    applyToAll({ edgeContrast: ev.value });
-  });
-
-  edgesFolder.addBinding(matParams, 'edgeAlphaFalloff', {
-    min: 0, max: 1, step: 0.01,
-    label: 'alpha falloff',
-  }).on('change', (ev: any) => {
-    applyToAll({ edgeAlphaFalloff: ev.value });
-  });
-
-  edgesFolder.addBinding(matParams, 'edgeMaskCutoff', {
+  edgeMaskFolder.addBinding(matParams, 'edgeMaskCutoff', {
     min: 0, max: 0.1, step: 0.001,
     label: 'mask cutoff',
-  }).on('change', (ev: any) => {
-    applyToAll({ edgeMaskCutoff: ev.value });
-  });
+  }).on('change', applyEdgeMask);
 
-  edgesFolder.addBinding(matParams, 'enableEdgeSmoothing', {
-    label: 'smoothing',
-  }).on('change', (ev: any) => {
-    applyToAll({ enableEdgeSmoothing: ev.value });
-  });
+  edgeMaskFolder.addBinding(matParams, 'edgeMaskInvert', {
+    label: 'invert mask',
+  }).on('change', applyEdgeMask);
 
-  edgesFolder.addBinding(matParams, 'enableContrastReduction', {
-    label: 'contrast',
-  }).on('change', (ev: any) => {
-    applyToAll({ enableContrastReduction: ev.value });
-  });
+  // Smoothing tactic
+  const smoothingFolder = edgeMaskFolder.addFolder({ title: 'Smoothing', expanded: false });
+  smoothingFolder.addBinding(matParams, 'smoothingEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  smoothingFolder.addBinding(matParams, 'smoothingRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  smoothingFolder.addBinding(matParams, 'smoothingRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  smoothingFolder.addBinding(matParams, 'smoothingStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  smoothingFolder.addBinding(matParams, 'smoothingOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
 
-  edgesFolder.addBinding(matParams, 'enableAlphaFalloff', {
-    label: 'alpha falloff',
-  }).on('change', (ev: any) => {
-    applyToAll({ enableAlphaFalloff: ev.value });
-  });
+  // Contrast tactic
+  const contrastFolder = edgeMaskFolder.addFolder({ title: 'Contrast', expanded: false });
+  contrastFolder.addBinding(matParams, 'contrastEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  contrastFolder.addBinding(matParams, 'contrastRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  contrastFolder.addBinding(matParams, 'contrastRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  contrastFolder.addBinding(matParams, 'contrastStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  contrastFolder.addBinding(matParams, 'contrastOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
+
+  // Alpha tactic
+  const alphaFolder = edgeMaskFolder.addFolder({ title: 'Alpha Falloff', expanded: false });
+  alphaFolder.addBinding(matParams, 'alphaEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  alphaFolder.addBinding(matParams, 'alphaRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  alphaFolder.addBinding(matParams, 'alphaRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  alphaFolder.addBinding(matParams, 'alphaStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  alphaFolder.addBinding(matParams, 'alphaOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
+
+  // Tint tactic
+  const tintFolder = edgeMaskFolder.addFolder({ title: 'Tint', expanded: false });
+  tintFolder.addBinding(matParams, 'tintEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  tintFolder.addBinding(matParams, 'tintRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  tintFolder.addBinding(matParams, 'tintRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  tintFolder.addBinding(matParams, 'tintStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  tintFolder.addBinding(matParams, 'tintOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
+
+  // Darken tactic
+  const darkenFolder = edgeMaskFolder.addFolder({ title: 'Darken', expanded: false });
+  darkenFolder.addBinding(matParams, 'darkenEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  darkenFolder.addBinding(matParams, 'darkenRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  darkenFolder.addBinding(matParams, 'darkenRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  darkenFolder.addBinding(matParams, 'darkenStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  darkenFolder.addBinding(matParams, 'darkenOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
+
+  // Desaturate tactic
+  const desaturateFolder = edgeMaskFolder.addFolder({ title: 'Desaturate', expanded: false });
+  desaturateFolder.addBinding(matParams, 'desaturateEnabled', { label: 'enabled' }).on('change', applyEdgeMask);
+  desaturateFolder.addBinding(matParams, 'desaturateRangeStart', { min: 0, max: 1, step: 0.01, label: 'range start' }).on('change', applyEdgeMask);
+  desaturateFolder.addBinding(matParams, 'desaturateRangeEnd', { min: 0, max: 1, step: 0.01, label: 'range end' }).on('change', applyEdgeMask);
+  desaturateFolder.addBinding(matParams, 'desaturateStrength', { min: 0, max: 1, step: 0.01, label: 'strength' }).on('change', applyEdgeMask);
+  desaturateFolder.addBinding(matParams, 'desaturateOpacity', { min: 0, max: 1, step: 0.01, label: 'opacity' }).on('change', applyEdgeMask);
 
 
   // Bevel folder
@@ -1083,16 +1251,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     });
@@ -1134,16 +1294,8 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     });
@@ -1168,6 +1320,48 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
   bevelFolder.element.appendChild(canvasContainer);
   redrawCrossSection();
 
+  // === PILL SHAPE FOLDER ===
+  const pillFolder = surfaceTab.addFolder({ title: 'Pill Shape', expanded: true });
+
+  pillFolder.addBinding(pillParams, 'enabled', {
+    label: 'enabled',
+  }).on('change', () => {
+    createOrUpdatePill();
+    loggerInstance.log('pill:toggle', `enabled=${pillParams.enabled}`);
+  });
+
+  pillFolder.addBinding(pillParams, 'x', {
+    min: 0, max: window.innerWidth, step: 1,
+    label: 'X',
+  }).on('change', () => createOrUpdatePill());
+
+  pillFolder.addBinding(pillParams, 'y', {
+    min: 0, max: window.innerHeight, step: 1,
+    label: 'Y',
+  }).on('change', () => createOrUpdatePill());
+
+  pillFolder.addBinding(pillParams, 'radius', {
+    min: 10, max: 200, step: 1,
+    label: 'radius',
+  }).on('change', () => createOrUpdatePill());
+
+  pillFolder.addBinding(pillParams, 'expansion', {
+    min: 0, max: 500, step: 1,
+    label: 'expansion',
+  }).on('change', () => createOrUpdatePill());
+
+  pillFolder.addBinding(pillParams, 'segments', {
+    min: 8, max: 256, step: 1,
+    label: 'segments',
+  }).on('change', () => {
+    // Need to recreate panel for segment count change
+    if (pillPanel) {
+      system.removePanel(pillPanel);
+      pillPanel = null;
+    }
+    createOrUpdatePill();
+  });
+
   // Copy console to clipboard button
   pane.addButton({ title: 'Copy Console' }).on('click', () => {
     navigator.clipboard.writeText(loggerInstance.value).then(() => {
@@ -1188,7 +1382,12 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     delete saved.useBezier;
     delete saved.bezierCurve;
     delete saved.extraBevel;
-    Object.assign(matParams, saved);
+    // Merge saved values, keeping defaults for any missing fields
+    for (const key of Object.keys(saved)) {
+      if (key in matParams) {
+        (matParams as any)[key] = saved[key];
+      }
+    }
     pane.refresh();
   }
 
@@ -1237,20 +1436,14 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
           noiseIntensity: matParams.noiseIntensity,
           noiseRotation: matParams.noiseRotation,
           noiseThreshold: matParams.noiseThreshold,
-          edgeSmoothWidth: matParams.edgeSmoothWidth,
-          edgeContrast: matParams.edgeContrast,
-          edgeAlphaFalloff: matParams.edgeAlphaFalloff,
-          edgeMaskCutoff: matParams.edgeMaskCutoff,
-          enableEdgeSmoothing: matParams.enableEdgeSmoothing,
-          enableContrastReduction: matParams.enableContrastReduction,
-          enableAlphaFalloff: matParams.enableAlphaFalloff,
-          enableTintOpacity: matParams.enableTintOpacity,
-          edgeBlur: matParams.edgeBlur,
           glassSupersampling: matParams.glassSupersampling,
+          edgeMask: buildEdgeMask(),
         },
       });
     });
     redrawCrossSection();
+    // Apply saved light follow params
+    overlay.setLightFollowParams(buildLightFollowParams());
   }, 150);
 
   // Save on any change

@@ -59,17 +59,31 @@ uniform float uNoiseIntensity;
 uniform float uNoiseRotation;
 uniform float uNoiseThreshold;
 uniform float uEdgeSupersampling;
-uniform float uEdgeSmoothWidth;
-uniform float uEdgeContrast;
-uniform float uEdgeAlphaFalloff;
-uniform float uEdgeMaskCutoff;
-uniform bool uEnableEdgeSmoothing;
-uniform bool uEnableContrastReduction;
-uniform bool uEnableAlphaFalloff;
-uniform bool uEnableTintOpacity;
-uniform float uEdgeBlur;
 uniform float uGlassSupersampling;
 uniform vec2 uPanelSize;
+
+// Edge mask system
+uniform float uEdgeMaskCutoff;
+uniform float uEdgeMaskBlur;
+uniform bool uEdgeMaskInvert;
+
+// Edge tactics: vec4(rangeStart, rangeEnd, strength, opacity)
+uniform vec4 uEdgeSmoothing;
+uniform vec4 uEdgeContrast;
+uniform vec4 uEdgeAlpha;
+uniform vec4 uEdgeTint;
+uniform vec4 uEdgeDarken;
+uniform vec4 uEdgeDesaturate;
+
+// Tactic enable flags
+uniform bool uEnableSmoothing;
+uniform bool uEnableContrast;
+uniform bool uEnableAlpha;
+uniform bool uEnableTint;
+uniform bool uEnableDarken;
+uniform bool uEnableDesaturate;
+// Debug mode: 0=off, 1=edgeDist, 2=shapeMask, 3=normals
+uniform float uDebugMode;
 
 // Simple value noise
 float hash(vec2 p) {
@@ -109,12 +123,7 @@ vec3 sampleDispersion(vec2 baseUV, vec2 offset){
 }
 
 vec3 sampleFrostedColor(vec2 baseUV, vec2 offset){
-  // Scale blur by panel size relative to reference (200px)
-  float referenceSize = 200.0;
-  float avgPanelSize = (uPanelSize.x + uPanelSize.y) * 0.5;
-  float sizeScale = avgPanelSize / referenceSize;
-
-  float radius = uRoughness * uBlurSpread * sizeScale;
+  float radius = uRoughness * uBlurSpread;
   vec3 accum = vec3(0.0);
   float totalWeight = 0.0;
   int samples = int(uBlurSamples);
@@ -157,48 +166,121 @@ vec3 sampleFrostedColor(vec2 baseUV, vec2 offset){
   return accum / max(totalWeight, 1.0);
 }
 
+// Apply a tactic based on edge mask value
+// Returns a factor in [0, 1] based on mask position within tactic range
+// mask: 0 at edge, 1 at center
+// rangeStart/rangeEnd: define the mask region where effect applies (0=edge, 1=center)
+float applyTactic(vec4 tactic, float mask) {
+  float rangeStart = tactic.x;
+  float rangeEnd = tactic.y;
+  float strength = tactic.z;
+  float opacity = tactic.w;
+
+  // Effect is full (1.0) when mask < rangeStart
+  // Effect fades to 0 as mask approaches rangeEnd
+  // Effect is 0 when mask > rangeEnd
+  float t = 1.0 - smoothstep(rangeStart, rangeEnd, mask);
+
+  // Apply strength and opacity
+  return t * strength * opacity;
+}
+
+// Calculate edge distance mask from shape mask (0 at edges, 1 at center)
+// Uses sampling to find distance to nearest edge of the shape
+float calculateEdgeMask(vec2 uv, sampler2D normalMap) {
+  // Sample in multiple directions to find distance to edge
+  float minDist = 1.0;
+
+  // Check 8 directions for coverage
+  for (int i = 0; i < 8; i++) {
+    float angle = float(i) * 0.785398; // PI/4
+    vec2 dir = vec2(cos(angle), sin(angle));
+
+    // March along direction with fine steps (0-30% of distance to center)
+    for (int step = 1; step <= 512; step++) {
+      float t = float(step) / 512.0 * 0.15; // Max 0.15 in UV space (30% of 0.5)
+      vec2 sampleUV = uv + dir * t;
+
+      // Check bounds
+      if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+        minDist = min(minDist, t);
+        break;
+      }
+
+      // Check shape mask
+      float mask = texture2D(normalMap, sampleUV).a;
+      if (mask < 0.5) {
+        minDist = min(minDist, t);
+        break;
+      }
+    }
+  }
+
+  // Normalize to 0-1 range (0 at edge, 1 when dist >= 0.15)
+  return clamp(minDist / 0.15, 0.0, 1.0);
+}
+
 void main(){
   vec2 screenUV = gl_FragCoord.xy * uInvResolution;
 
   vec4 normalSample = texture2D(uNormalMap, vUv);
-  float mask = normalSample.a;
+  float shapeMask = normalSample.a;
 
-  // Blur the mask at edges for softer borders
-  if (uEdgeBlur > 0.0 && mask < 0.9) {
-    float blurredMask = 0.0;
+  // Discard pixels outside the shape (border radius)
+  if (shapeMask < 0.5) {
+    discard;
+  }
+
+  // Calculate edge distance (0 at edges, 1 at center)
+  float edgeDist = calculateEdgeMask(vUv, uNormalMap);
+
+  // Optionally blur the edge distance
+  if (uEdgeMaskBlur > 0.0) {
+    float blurredDist = 0.0;
     float blurWeight = 0.0;
-    vec2 texelSize = uInvResolution * uEdgeBlur;
+    float blurSize = uEdgeMaskBlur * 0.01;
     for (int x = -2; x <= 2; x++) {
       for (int y = -2; y <= 2; y++) {
-        vec2 offset = vec2(float(x), float(y)) * texelSize;
-        float sampleMask = texture2D(uNormalMap, vUv + offset).a;
+        vec2 offset = vec2(float(x), float(y)) * blurSize;
+        float sampleDist = calculateEdgeMask(vUv + offset, uNormalMap);
         float weight = 1.0 - length(vec2(float(x), float(y))) * 0.2;
-        blurredMask += sampleMask * weight;
+        blurredDist += sampleDist * weight;
         blurWeight += weight;
       }
     }
-    mask = blurredMask / blurWeight;
+    edgeDist = blurredDist / blurWeight;
   }
 
-  // Discard pixels outside the masked area (border radius)
-  if (mask < uEdgeMaskCutoff) {
-    discard;
+  // Optionally invert the edge distance
+  if (uEdgeMaskInvert) {
+    edgeDist = 1.0 - edgeDist;
+  }
+
+  // Debug modes (early exit)
+  if (uDebugMode > 0.5) {
+    if (uDebugMode < 1.5) {
+      // Mode 1: Edge distance (black at edges, white at center)
+      gl_FragColor = vec4(vec3(edgeDist), 1.0);
+    } else if (uDebugMode < 2.5) {
+      // Mode 2: Shape mask (border radius alpha)
+      gl_FragColor = vec4(vec3(shapeMask), 1.0);
+    } else {
+      // Mode 3: Normal map visualization
+      gl_FragColor = vec4(normalSample.rgb, 1.0);
+    }
+    return;
   }
 
   // Simple refraction offset based on normal map
   vec2 normal = normalSample.xy * 2.0 - 1.0;
 
-  // Edge smoothing with configurable width
-  float edgeSmoothness = 1.0;
-  if (uEnableEdgeSmoothing) {
-    float smoothWidth = uEdgeSmoothWidth * (0.5 + 0.5 * uEdgeSupersampling);
-    edgeSmoothness = smoothstep(0.0, smoothWidth, mask);
-  }
-
-  float contrastReduction = 1.0;
-  if (uEnableContrastReduction) {
-    contrastReduction = mix(uEdgeContrast, 1.0, edgeSmoothness);
-  }
+  // Calculate edge factors for each tactic
+  float smoothingFactor = uEnableSmoothing ? applyTactic(uEdgeSmoothing, edgeDist) : 0.0;
+  float contrastFactor = uEnableContrast ? applyTactic(uEdgeContrast, edgeDist) : 0.0;
+  float alphaFactor = uEnableAlpha ? applyTactic(uEdgeAlpha, edgeDist) : 0.0;
+  float tintFactor = uEnableTint ? applyTactic(uEdgeTint, edgeDist) : 0.0;
+  float darkenFactor = uEnableDarken ? applyTactic(uEdgeDarken, edgeDist) : 0.0;
+  float desaturateFactor = uEnableDesaturate ? applyTactic(uEdgeDesaturate, edgeDist) : 0.0;
 
   // Apply noise distortion to normal (anchored to container via vUv)
   if (uNoiseIntensity > 0.001) {
@@ -250,23 +332,50 @@ void main(){
   // Shadow from normal facing away from light
   float shadowFactor = 1.0 - uShadow * (1.0 - NdotL);
 
-  // Ambient occlusion based on edge distance (darker at edges/outside)
-  float edgeDist = length(normal);
-  float aoFactor = 1.0 - uAO * smoothstep(0.0, uAORadius, edgeDist);
+  // Ambient occlusion based on normal length (darker at edges/outside)
+  float normalDist = length(normal);
+  float aoFactor = 1.0 - uAO * smoothstep(0.0, uAORadius, normalDist);
 
   // Apply lighting
   refracted = refracted * shadowFactor * aoFactor + vec3(spec);
 
-  // Apply contrast reduction at edges and tint intensity to overall opacity
-  if (uEnableContrastReduction) {
-    refracted *= contrastReduction;
+  // Apply modular edge tactics
+
+  // Smoothing: reduce sharpness at edges by blending toward grey
+  if (uEnableSmoothing && smoothingFactor > 0.0) {
+    float lum = dot(refracted, vec3(0.299, 0.587, 0.114));
+    refracted = mix(refracted, vec3(lum), smoothingFactor * 0.5);
   }
 
-  // Use normal map alpha as shape mask
-  float shapeMask = normalSample.a;
-  if (shapeMask < 0.5) discard;
+  // Contrast reduction at edges
+  if (uEnableContrast && contrastFactor > 0.0) {
+    float contrastMult = 1.0 - contrastFactor * 0.5;
+    refracted *= contrastMult;
+  }
 
-  gl_FragColor = vec4(refracted, 1.0);
+  // Darken edges (vignette effect)
+  if (uEnableDarken && darkenFactor > 0.0) {
+    refracted *= (1.0 - darkenFactor * 0.7);
+  }
+
+  // Desaturate edges
+  if (uEnableDesaturate && desaturateFactor > 0.0) {
+    float luma = dot(refracted, vec3(0.299, 0.587, 0.114));
+    refracted = mix(refracted, vec3(luma), desaturateFactor);
+  }
+
+  // Tint opacity at edges
+  if (uEnableTint && tintFactor > 0.0) {
+    refracted = mix(refracted, refracted * uTint, tintFactor);
+  }
+
+  // Alpha falloff at edges
+  float finalAlpha = 1.0;
+  if (uEnableAlpha && alphaFactor > 0.0) {
+    finalAlpha = 1.0 - alphaFactor;
+  }
+
+  gl_FragColor = vec4(refracted, finalAlpha);
 }
 `;
 

@@ -80,17 +80,27 @@ export class WebGL2Pipeline implements Pipeline {
       uNoiseRotation: { value: 0, type: 'f32' },
       uNoiseThreshold: { value: 0, type: 'f32' },
       uEdgeSupersampling: { value: 1, type: 'f32' },
-      uEdgeSmoothWidth: { value: 0.15, type: 'f32' },
-      uEdgeContrast: { value: 0.7, type: 'f32' },
-      uEdgeAlphaFalloff: { value: 1, type: 'f32' },
-      uEdgeMaskCutoff: { value: 0.001, type: 'f32' },
-      uEnableEdgeSmoothing: { value: 1, type: 'f32' },
-      uEnableContrastReduction: { value: 1, type: 'f32' },
-      uEnableAlphaFalloff: { value: 1, type: 'f32' },
-      uEnableTintOpacity: { value: 1, type: 'f32' },
-      uEdgeBlur: { value: 0, type: 'f32' },
       uGlassSupersampling: { value: 1, type: 'f32' },
       uPanelSize: { value: new Float32Array([200, 200]), type: 'vec2<f32>' },
+      // Edge mask system
+      uEdgeMaskCutoff: { value: 0.001, type: 'f32' },
+      uEdgeMaskBlur: { value: 0, type: 'f32' },
+      uEdgeMaskInvert: { value: 0, type: 'f32' },
+      // Edge tactics: vec4(rangeStart, rangeEnd, strength, opacity)
+      uEdgeSmoothing: { value: new Float32Array([0, 0.3, 1, 1]), type: 'vec4<f32>' },
+      uEdgeContrast: { value: new Float32Array([0, 0.3, 0.7, 1]), type: 'vec4<f32>' },
+      uEdgeAlpha: { value: new Float32Array([0, 0.2, 1, 1]), type: 'vec4<f32>' },
+      uEdgeTint: { value: new Float32Array([0, 0.5, 0.5, 1]), type: 'vec4<f32>' },
+      uEdgeDarken: { value: new Float32Array([0, 0.3, 0.3, 1]), type: 'vec4<f32>' },
+      uEdgeDesaturate: { value: new Float32Array([0, 0.4, 0.5, 1]), type: 'vec4<f32>' },
+      // Tactic enables
+      uEnableSmoothing: { value: 0, type: 'f32' },
+      uEnableContrast: { value: 0, type: 'f32' },
+      uEnableAlpha: { value: 0, type: 'f32' },
+      uEnableTint: { value: 0, type: 'f32' },
+      uEnableDarken: { value: 0, type: 'f32' },
+      uEnableDesaturate: { value: 0, type: 'f32' },
+      uDebugMode: { value: 0, type: 'f32' },
     });
     this.refractShader = Shader.from({
       gl: { vertex: panelVertex, fragment: refractionFragment },
@@ -283,18 +293,51 @@ export class WebGL2Pipeline implements Pipeline {
         uniforms.uNoiseRotation = panel.glassMaterial.noiseRotation ?? 0;
         uniforms.uNoiseThreshold = panel.glassMaterial.noiseThreshold ?? 0;
         uniforms.uEdgeSupersampling = quality.edgeSupersampling ?? 1;
-        uniforms.uEdgeSmoothWidth = panel.glassMaterial.edgeSmoothWidth ?? 0.15;
-        uniforms.uEdgeContrast = panel.glassMaterial.edgeContrast ?? 0.7;
-        uniforms.uEdgeAlphaFalloff = panel.glassMaterial.edgeAlphaFalloff ?? 1;
-        uniforms.uEdgeMaskCutoff = panel.glassMaterial.edgeMaskCutoff ?? 0.001;
-        uniforms.uEnableEdgeSmoothing = panel.glassMaterial.enableEdgeSmoothing === true ? 1 : 0;
-        uniforms.uEnableContrastReduction = panel.glassMaterial.enableContrastReduction === true ? 1 : 0;
-        uniforms.uEnableAlphaFalloff = panel.glassMaterial.enableAlphaFalloff === true ? 1 : 0;
-        uniforms.uEnableTintOpacity = panel.glassMaterial.enableTintOpacity === true ? 1 : 0;
-        uniforms.uEdgeBlur = panel.glassMaterial.edgeBlur ?? 0;
         uniforms.uGlassSupersampling = panel.glassMaterial.glassSupersampling ?? 1;
         uniforms.uPanelSize[0] = panel.scale.x;
         uniforms.uPanelSize[1] = panel.scale.y;
+
+        // Edge mask system
+        const edgeMask = panel.glassMaterial.edgeMask;
+        if (edgeMask) {
+          uniforms.uEdgeMaskCutoff = edgeMask.cutoff;
+          uniforms.uEdgeMaskBlur = edgeMask.blur;
+          uniforms.uEdgeMaskInvert = edgeMask.invert ? 1 : 0;
+
+          // Set tactic uniforms
+          const setTactic = (uniform: Float32Array, tactic: any) => {
+            uniform[0] = tactic.rangeStart;
+            uniform[1] = tactic.rangeEnd;
+            uniform[2] = tactic.strength;
+            uniform[3] = tactic.opacity;
+          };
+
+          setTactic(uniforms.uEdgeSmoothing, edgeMask.smoothing);
+          setTactic(uniforms.uEdgeContrast, edgeMask.contrast);
+          setTactic(uniforms.uEdgeAlpha, edgeMask.alpha);
+          setTactic(uniforms.uEdgeTint, edgeMask.tint);
+          setTactic(uniforms.uEdgeDarken, edgeMask.darken);
+          setTactic(uniforms.uEdgeDesaturate, edgeMask.desaturate);
+
+          uniforms.uEnableSmoothing = edgeMask.smoothing.enabled ? 1 : 0;
+          uniforms.uEnableContrast = edgeMask.contrast.enabled ? 1 : 0;
+          uniforms.uEnableAlpha = edgeMask.alpha.enabled ? 1 : 0;
+          uniforms.uEnableTint = edgeMask.tint.enabled ? 1 : 0;
+          uniforms.uEnableDarken = edgeMask.darken.enabled ? 1 : 0;
+          uniforms.uEnableDesaturate = edgeMask.desaturate.enabled ? 1 : 0;
+          uniforms.uDebugMode = (edgeMask as any).debugMode ?? 0;
+        } else {
+          // Legacy fallback
+          uniforms.uEdgeMaskCutoff = panel.glassMaterial.edgeMaskCutoff ?? 0.001;
+          uniforms.uEdgeMaskBlur = panel.glassMaterial.edgeBlur ?? 0;
+          uniforms.uEdgeMaskInvert = 0;
+          uniforms.uEnableSmoothing = 0;
+          uniforms.uEnableContrast = 0;
+          uniforms.uEnableAlpha = 0;
+          uniforms.uEnableTint = 0;
+          uniforms.uEnableDarken = 0;
+          uniforms.uEnableDesaturate = 0;
+        }
       }
     }
 
