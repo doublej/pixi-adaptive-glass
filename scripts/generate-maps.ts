@@ -1,7 +1,30 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { createDisplacementMapData } from '../src/GlassOverlay.js';
+import { createDisplacementMapData, createUVMapData, createEdgeMapData, createNormalMapData } from '../src/geometry/normal-map.js';
 import type { SurfaceShape } from '../src/core/types.js';
+
+type MapType = 'displacement' | 'uv' | 'edge' | 'normal';
+
+function createMapData(
+  type: MapType,
+  width: number,
+  height: number,
+  radius: number,
+  bevel: number,
+  shape: SurfaceShape,
+  invertNormals: boolean,
+): { data: Uint8Array; width: number; height: number } {
+  switch (type) {
+    case 'displacement':
+      return createDisplacementMapData(width, height, radius, bevel, shape, false);
+    case 'uv':
+      return createUVMapData(width, height, radius);
+    case 'edge':
+      return createEdgeMapData(width, height, radius, bevel);
+    case 'normal':
+      return createNormalMapData(width, height, radius, bevel, shape, invertNormals);
+  }
+}
 
 // PNG encoder (minimal implementation)
 function encodePNG(width: number, height: number, rgba: Uint8Array): Buffer {
@@ -114,20 +137,26 @@ function encodePNG(width: number, height: number, rgba: Uint8Array): Buffer {
 
 // Main
 const shapes: SurfaceShape[] = ['circle', 'squircle', 'concave', 'lip', 'dome', 'wave', 'flat', 'ramp'];
-const outputDir = '/tmp/displacement-maps';
+const mapTypes: MapType[] = ['normal', 'displacement', 'uv', 'edge'];
+const outputDir = '/tmp/maps';
 const width = 256;
 const height = 256;
 const radius = 32;
 const bevel = 64;
+const invertNormals = false;
 
 mkdirSync(outputDir, { recursive: true });
 
+let count = 0;
 for (const shape of shapes) {
-  const result = createDisplacementMapData(width, height, radius, bevel, shape);
-  const png = encodePNG(result.width, result.height, result.data);
-  const filename = join(outputDir, `${shape}.png`);
-  writeFileSync(filename, png);
-  console.log(`Saved: ${filename}`);
+  for (const mapType of mapTypes) {
+    const result = createMapData(mapType, width, height, radius, bevel, shape, invertNormals);
+    const png = encodePNG(result.width, result.height, result.data);
+    const filename = join(outputDir, `${shape}-${mapType}.png`);
+    writeFileSync(filename, png);
+    console.log(`Saved: ${filename}`);
+    count++;
+  }
 }
 
-console.log(`\nGenerated ${shapes.length} displacement maps in ${outputDir}`);
+console.log(`\nGenerated ${count} maps (${mapTypes.length} types × ${shapes.length} shapes) in ${outputDir}`);

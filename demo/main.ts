@@ -1,5 +1,5 @@
 import { Application, Assets, Container, Sprite, Texture, MeshGeometry } from 'pixi.js';
-import { GlassOverlay, GlassPresets, getHeightAndDerivative, createPillGeometry, updatePillGeometry, createPillNormalMap, GlassPanel, createDefaultEdgeMask, createDisplacementMap } from '../src/index.js';
+import { GlassOverlay, GlassPresets, getHeightAndDerivative, createPillGeometry, updatePillGeometry, createPillNormalMap, GlassPanel, createDefaultEdgeMask, createDisplacementMap, createUVMap, createEdgeMap, createNormalMap, createAllMaps } from '../src/index.js';
 import type { RenderQualityOptions, SurfaceShape, EdgeMaskConfig, EdgeTactic } from '../src/core/types.js';
 import { Pane } from 'tweakpane';
 import * as EssentialsPlugin from '@tweakpane/plugin-essentials';
@@ -700,7 +700,6 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
       matParams['surface.shape'] as SurfaceShape
     );
 
-    // Extract texture to canvas and download
     const canvas = document.createElement('canvas');
     canvas.width = texture.width;
     canvas.height = texture.height;
@@ -719,4 +718,154 @@ function setupTweakpane(overlay: GlassOverlay, loggerInstance: DebugLogger, tran
     texture.destroy();
   });
   surfaceFolder.element.appendChild(exportBtn);
+
+  // Export UV map button
+  const uvBtn = document.createElement('button');
+  uvBtn.textContent = 'Export UV Map';
+  uvBtn.style.cssText = 'width: 100%; padding: 8px; margin-top: 8px; cursor: pointer; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 4px;';
+  uvBtn.addEventListener('click', () => {
+    const panel = document.querySelector<HTMLElement>('.draggable-item');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const texture = createUVMap(
+      rect.width,
+      rect.height,
+      matParams['surface.cornerRadius']
+    );
+
+    const canvas = document.createElement('canvas');
+    canvas.width = texture.width;
+    canvas.height = texture.height;
+    const ctx = canvas.getContext('2d')!;
+    const imageData = ctx.createImageData(texture.width, texture.height);
+    const source = texture.source as any;
+    const data = source.resource as Uint8Array;
+    imageData.data.set(data);
+    ctx.putImageData(imageData, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = 'uv-map.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    texture.destroy();
+  });
+  surfaceFolder.element.appendChild(uvBtn);
+
+  // Export edge map button
+  const edgeBtn = document.createElement('button');
+  edgeBtn.textContent = 'Export Edge Map';
+  edgeBtn.style.cssText = 'width: 100%; padding: 8px; margin-top: 8px; cursor: pointer; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 4px;';
+  edgeBtn.addEventListener('click', () => {
+    const panel = document.querySelector<HTMLElement>('.draggable-item');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const texture = createEdgeMap(
+      rect.width,
+      rect.height,
+      matParams['surface.cornerRadius'],
+      matParams['surface.bevelSize']
+    );
+
+    const canvas = document.createElement('canvas');
+    canvas.width = texture.width;
+    canvas.height = texture.height;
+    const ctx = canvas.getContext('2d')!;
+    const imageData = ctx.createImageData(texture.width, texture.height);
+    const source = texture.source as any;
+    const data = source.resource as Uint8Array;
+    imageData.data.set(data);
+    ctx.putImageData(imageData, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = 'edge-map.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    texture.destroy();
+  });
+  surfaceFolder.element.appendChild(edgeBtn);
+
+  // Export normal map button
+  const normalBtn = document.createElement('button');
+  normalBtn.textContent = 'Export Normal Map';
+  normalBtn.style.cssText = 'width: 100%; padding: 8px; margin-top: 8px; cursor: pointer; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 4px;';
+  normalBtn.addEventListener('click', () => {
+    const panel = document.querySelector<HTMLElement>('.draggable-item');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const texture = createNormalMap(
+      rect.width,
+      rect.height,
+      matParams['surface.cornerRadius'],
+      matParams['surface.bevelSize'],
+      matParams['surface.shape'] as SurfaceShape,
+      matParams['surface.invertNormals']
+    );
+
+    const canvas = document.createElement('canvas');
+    canvas.width = texture.width;
+    canvas.height = texture.height;
+    const ctx = canvas.getContext('2d')!;
+    const imageData = ctx.createImageData(texture.width, texture.height);
+    const source = texture.source as any;
+    const data = source.resource as Uint8Array;
+    imageData.data.set(data);
+    ctx.putImageData(imageData, 0, 0);
+
+    const link = document.createElement('a');
+    link.download = 'normal-map.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    texture.destroy();
+  });
+  surfaceFolder.element.appendChild(normalBtn);
+
+  // Export all maps button
+  const allBtn = document.createElement('button');
+  allBtn.textContent = 'Export All Maps';
+  allBtn.style.cssText = 'width: 100%; padding: 8px; margin-top: 8px; cursor: pointer; background: #4a9eff; color: #fff; border: 1px solid #6ab0ff; border-radius: 4px; font-weight: bold;';
+  allBtn.addEventListener('click', () => {
+    const panel = document.querySelector<HTMLElement>('.draggable-item');
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const maps = createAllMaps(
+      rect.width,
+      rect.height,
+      matParams['surface.cornerRadius'],
+      matParams['surface.bevelSize'],
+      matParams['surface.shape'] as SurfaceShape,
+      matParams['surface.invertNormals'],
+      false
+    );
+
+    const exportTexture = (texture: Texture, name: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = texture.width;
+      canvas.height = texture.height;
+      const ctx = canvas.getContext('2d')!;
+      const imageData = ctx.createImageData(texture.width, texture.height);
+      const source = texture.source as any;
+      const data = source.resource as Uint8Array;
+      imageData.data.set(data);
+      ctx.putImageData(imageData, 0, 0);
+
+      const link = document.createElement('a');
+      link.download = name;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    exportTexture(maps.normalMap, 'normal-map.png');
+    setTimeout(() => exportTexture(maps.displacementMap, 'displacement-map.png'), 100);
+    setTimeout(() => exportTexture(maps.uvMap, 'uv-map.png'), 200);
+    setTimeout(() => exportTexture(maps.edgeMap, 'edge-map.png'), 300);
+
+    maps.normalMap.destroy();
+    maps.displacementMap.destroy();
+    maps.uvMap.destroy();
+    maps.edgeMap.destroy();
+  });
+  surfaceFolder.element.appendChild(allBtn);
 }

@@ -1,6 +1,6 @@
 {
   "name": "pixi-adaptive-glass",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "An adaptive glass effect plugin for PixiJS applications.",
   "type": "module",
   "main": "./dist/pixi-adaptive-glass.umd.js",
